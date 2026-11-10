@@ -54,6 +54,14 @@
   #help td:first-child{ color:var(--accent); padding-right:7px; white-space:nowrap; }
   kbd{ background:#1c2433; border:1px solid #38445c; border-bottom-width:2px; border-radius:4px; padding:0 4px; font-size:9px; font-family:inherit; }
 
+  #streetName{ position:absolute; left:50%; bottom:22px; text-align:center; pointer-events:none; z-index:10;
+               opacity:0; transform:translate(-50%, 8px); transition:opacity .5s, transform .5s; }
+  #streetName.show{ opacity:1; transform:translate(-50%, 0); }
+  #streetTxt{ font-size:22px; font-weight:700; letter-spacing:1.5px; color:#fff; text-transform:uppercase;
+              text-shadow:0 2px 8px rgba(0,0,0,.9), 0 0 3px rgba(0,0,0,.9); }
+  #streetSub{ font-size:10.5px; letter-spacing:3px; color:var(--gold); text-transform:uppercase; margin-top:2px;
+              text-shadow:0 1px 5px rgba(0,0,0,.9); }
+
   #toast{ position:absolute; bottom:150px; left:50%; transform:translateX(-50%); max-width:70vw; background:rgba(8,12,20,.92); border:1px solid var(--accent); border-radius:12px; padding:8px 14px; font-size:13px; text-align:center; opacity:0; transition:opacity .3s; pointer-events:none; }
   #toast.show{ opacity:1; }
   #toast.warn{ border-color:var(--danger); color:#ffd7d7; }
@@ -139,6 +147,9 @@
     #voice{ width:210px; }
   }
   @media (max-width:760px), (max-height:540px){
+    #streetName{ bottom:14px; }
+    #streetTxt{ font-size:16px; }
+    #streetSub{ font-size:9px; }
     #hud{ min-width:0; padding:6px 9px; }
     #hud h1{ font-size:11.5px; }
     #hud .day{ font-size:9.5px; margin-bottom:3px; }
@@ -208,6 +219,8 @@
   <!-- Donnees cartographiques © contributeurs OpenStreetMap (ODbL) · Imagerie satellite © Esri, Maxar -->
   <canvas id="minimap" width="210" height="210"></canvas>
 </div>
+
+<div id="streetName"><div id="streetTxt"></div><div id="streetSub">Mbanza-Ngungu</div></div>
 
 <div id="voice" class="panel">
   <h2>Commande vocale</h2>
@@ -471,7 +484,7 @@ function ribbon(pts, w, y, arr, vScale, off){
   }
   for (let i = 0; i < n-1; i++){
     const a = i*2, b = a+1, c = a+2, d = a+3;
-    idx.push(a,b,c, b,d,c);
+    idx.push(a,c,b, b,c,d);        // winding vers le haut (normale +y), sinon les rubans sont culles
   }
 }
 
@@ -788,19 +801,19 @@ function pushWire(A, B){
 
 let roadEps = 0;
 for (const r of D.roads){
-  const yR = 0.03 + (roadEps++ % 7) * 0.0013;
+  const yR = 0.05 + (roadEps++ % 7) * 0.0013;              // nettement au-dessus du plan satellite
   const paved = PAVED.has(r.type);
   ribbon(r.pts, r.w, yR, paved ? roadA : trackA, 6);
   if (paved){
-    ribbon(r.pts, r.w + 7, 0.014, dirtA, 6);                 // bande de terre battue
+    ribbon(r.pts, r.w + 7, 0.03, dirtA, 6);                  // bande de terre battue
     const sw = r.w/2 + 1.7;
     ribbon(r.pts, 3.4, 0.13, walkA, 6, sw);                  // trottoir betonne (RN1)
     ribbon(r.pts, 3.4, 0.13, walkA, 6, -sw);
   } else if (r.type !== 'pedestrian'){
-    ribbon(r.pts, r.w + 5, 0.012, dirtA, 6);                 // terre battue autour de la piste
+    ribbon(r.pts, r.w + 5, 0.028, dirtA, 6);                 // terre battue autour de la piste
     if (r.w >= 6){                                           // ornières de voiture
-      ribbon(r.pts, 1.1, yR + 0.006, rutA, 6, 1.7);
-      ribbon(r.pts, 1.1, yR + 0.006, rutA, 6, -1.7);
+      ribbon(r.pts, 1.1, yR + 0.012, rutA, 6, 1.7);
+      ribbon(r.pts, 1.1, yR + 0.012, rutA, 6, -1.7);
     }
   }
   if (r.type === 'primary' || r.type === 'secondary'){
@@ -813,7 +826,7 @@ for (const r of D.roads){
         const t = d/L, t2 = Math.min((d+5)/L, 1);
         const fake = [[a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t],
                       [a[0]+(b[0]-a[0])*t2, a[1]+(b[1]-a[1])*t2]];
-        ribbon(fake, 0.35, 0.06, lineA, 6);
+        ribbon(fake, 0.35, 0.075, lineA, 6);
       }
       dist += L;
     }
@@ -875,25 +888,25 @@ for (const r of D.roads){
   }
 }
 scene.add(new THREE.Mesh(geomFrom(dirtA.pos, dirtA.uv, null, dirtA.idx),
-  new THREE.MeshLambertMaterial({ color: 0x8f5533 })));          // terre battue
+  new THREE.MeshLambertMaterial({ color: 0x7e4a2b, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })));
 const trackMesh = new THREE.Mesh(geomFrom(trackA.pos, trackA.uv, null, trackA.idx),
-  new THREE.MeshLambertMaterial({ color: 0x9a5730 }));           // piste en terre rouge
+  new THREE.MeshLambertMaterial({ color: 0x6e3d22, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
 trackMesh.receiveShadow = true;
 scene.add(trackMesh);
 scene.add(new THREE.Mesh(geomFrom(rutA.pos, rutA.uv, null, rutA.idx),
-  new THREE.MeshLambertMaterial({ color: 0x83482a })));          // ornières
+  new THREE.MeshLambertMaterial({ color: 0x5c3319, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })));
 const roadMesh = new THREE.Mesh(geomFrom(roadA.pos, roadA.uv, null, roadA.idx),
-  new THREE.MeshLambertMaterial({ color: 0x45464b }));           // asphalte (RN1)
+  new THREE.MeshLambertMaterial({ color: 0x45464b, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
 roadMesh.receiveShadow = true;
 scene.add(roadMesh);
 const walkMesh = new THREE.Mesh(geomFrom(walkA.pos, walkA.uv, null, walkA.idx),
-  new THREE.MeshLambertMaterial({ color: 0xb9b3a4 }));           // trottoir betonne
+  new THREE.MeshLambertMaterial({ color: 0xb9b3a4, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
 walkMesh.receiveShadow = true;
 scene.add(walkMesh);
 scene.add(new THREE.Mesh(geomFrom(lineA.pos, lineA.uv, null, lineA.idx),
-  new THREE.MeshBasicMaterial({ color: 0xe8e2c8 })));
+  new THREE.MeshBasicMaterial({ color: 0xe8e2c8, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 })));
 scene.add(new THREE.Mesh(geomFrom(holeA.pos, holeA.uv, holeA.col, holeA.idx),
-  new THREE.MeshLambertMaterial({ vertexColors: true })));
+  new THREE.MeshLambertMaterial({ vertexColors: true, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })));
 const poleMesh = new THREE.Mesh(geomFrom(poleA.pos, poleA.uv, poleA.col, poleA.idx),
   new THREE.MeshLambertMaterial({ vertexColors: true }));
 poleMesh.castShadow = true;
@@ -2695,11 +2708,19 @@ function updateLife(dt){
 
 /* ============================ MINIMAP ============================ */
 const mm = $('minimap'), mctx = mm.getContext('2d');
-const MMZ = 4.5;                                        // carte statique agrandie : vue proche, style GTA
+/* la carte statique couvre le coeur de ville (bbox POI + marge = zone satellite),
+   pas toute la RN1 : sinon la minimap degagerait 1 km et la ville serait minuscule */
+let cMinX = 1e9, cMaxX = -1e9, cMinZ = 1e9, cMaxZ = -1e9;
+for (const p of D.pois){
+  cMinX = Math.min(cMinX, p.x); cMaxX = Math.max(cMaxX, p.x);
+  cMinZ = Math.min(cMinZ, p.z); cMaxZ = Math.max(cMaxZ, p.z);
+}
+cMinX -= 500; cMaxX += 500; cMinZ -= 500; cMaxZ += 500;
+const MMZ = 4.5;                                        // ~350 m visibles dans le cercle, style GTA
 const mmsW = mm.width * MMZ, mmsH = mm.height * MMZ;
-const mmScale = Math.min(mmsW / (maxX-minX+150), mmsH / (maxZ-minZ+150));
-const mmOX = (mmsW - (maxX-minX)*mmScale)/2, mmOZ = (mmsH - (maxZ-minZ)*mmScale)/2;
-const m2c = (x, z) => [ (x-minX)*mmScale + mmOX, (z-minZ)*mmScale + mmOZ ];
+const mmScale = Math.min(mmsW / (cMaxX-cMinX), mmsH / (cMaxZ-cMinZ));
+const mmOX = (mmsW - (cMaxX-cMinX)*mmScale)/2, mmOZ = (mmsH - (cMaxZ-cMinZ)*mmScale)/2;
+const m2c = (x, z) => [ (x-cMinX)*mmScale + mmOX, (z-cMinZ)*mmScale + mmOZ ];
 const mmStatic = document.createElement('canvas');
 mmStatic.width = mmsW; mmStatic.height = mmsH;
 function drawStaticMap(){
@@ -2815,6 +2836,48 @@ function drawMinimap(t){
   mctx.moveTo(0, -7); mctx.lineTo(5, 6); mctx.lineTo(0, 3.5); mctx.lineTo(-5, 6);
   mctx.closePath(); mctx.fill(); mctx.stroke();
   mctx.restore();
+}
+
+/* --- nom de l'avenue ou l'on marche (style GTA) : popup discret en bas a droite --- */
+const namedStreets = [];
+const streetLabel = n => n.toUpperCase().replace(/^AV\.(?=\S)/, 'AV. ');
+for (const r of D.roads){
+  if (!r.name || r.type === 'path' || r.type === 'footway') continue;   // avenues : tout sauf sentiers
+  let ax = 1e9, bx = -1e9, az = 1e9, bz = -1e9;
+  for (const p of r.pts){ ax = Math.min(ax, p[0]); bx = Math.max(bx, p[0]); az = Math.min(az, p[1]); bz = Math.max(bz, p[1]); }
+  namedStreets.push({ name: streetLabel(r.name), pts: r.pts, hw: r.w/2 + 8, ax: ax-20, bx: bx+20, az: az-20, bz: bz+20 });
+}
+function segDist(px, pz, s, i){
+  const a = s.pts[i], b = s.pts[i+1];
+  const dx = b[0]-a[0], dz = b[1]-a[1];
+  const L2 = dx*dx + dz*dz;
+  let t = L2 ? ((px-a[0])*dx + (pz-a[1])*dz) / L2 : 0;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(a[0]+dx*t - px, a[1]+dz*t - pz);
+}
+let curStreet = null, streetAt = -1, streetHide = null;
+function streetTick(now){
+  if (now - streetAt < 400) return;                // test 2-3 fois par seconde suffit
+  streetAt = now;
+  let best = null, bd = 1e9;
+  for (const s of namedStreets){
+    if (S.pos.x < s.ax || S.pos.x > s.bx || S.pos.z < s.az || S.pos.z > s.bz) continue;
+    for (let i = 0; i < s.pts.length-1; i++){
+      const d = segDist(S.pos.x, S.pos.z, s, i);
+      if (d < bd){ bd = d; best = s; }
+    }
+  }
+  const name = (best && bd < best.hw) ? best.name : null;
+  if (name !== curStreet){
+    curStreet = name;
+    if (name){
+      $('streetTxt').textContent = name;
+      const el = $('streetName');
+      el.classList.add('show');
+      clearTimeout(streetHide);
+      streetHide = setTimeout(() => el.classList.remove('show'), 4500);
+    }
+  }
 }
 
 /* ============================ ENTRÉES ============================ */
@@ -3346,6 +3409,13 @@ loadModelLibrary();
   }
   const ch = qs.get('char');
   if (ch !== null && isFinite(+ch)) setTimeout(() => applyCharacter(+ch), 650);
+  const st = qs.get('street');                       // ?street=Nom : force l'affichage du panneau (test HUD)
+  if (st){
+    setTimeout(() => {
+      $('streetTxt').textContent = st;
+      $('streetName').classList.add('show');
+    }, 900);
+  }
 }
 
 /* ============================ BOUCLE ============================ */
@@ -3370,7 +3440,7 @@ function animate(){
   updateObjective(dt);
   updateAmbiance(dt);
   updateLife(dt);
-  if (S.state !== 'menu') { drawMinimap(t); updateHud(); }
+  if (S.state !== 'menu') { drawMinimap(t); streetTick(t); updateHud(); }
 
   marker.visible = S.state === 'playing' || S.state === 'dialog';
   ring.rotation.z = t/600;
