@@ -16,6 +16,7 @@ def xy(lon, lat):
 
 nodes = {}      # id -> (lon, lat, tags)
 ways = {}       # id -> (refs, tags)
+rels = {}       # id -> (way_refs, tags)
 
 def parse(f):
     tree = ET.parse(os.path.join(HERE, f))
@@ -27,6 +28,10 @@ def parse(f):
             refs = [nd.get("ref") for nd in el.findall("nd")]
             tags = {t.get("k"): t.get("v") for t in el.findall("tag")}
             ways[el.get("id")] = (refs, tags)
+        elif el.tag == "relation":
+            mrefs = [m.get("ref") for m in el.findall("member") if m.get("type") == "way"]
+            tags = {t.get("k"): t.get("v") for t in el.findall("tag")}
+            rels[el.get("id")] = (mrefs, tags)
 
 for f in FILES:
     parse(f)
@@ -68,10 +73,66 @@ for wid, (refs, tags) in ways.items():
 
 print("routes retenues:", len(roads))
 
+# ---------- Chemin de fer Matadi-Kinshasa (vraie ligne OSM) ----------
+rails = []
+for wid, (refs, tags) in ways.items():
+    if tags.get("railway") not in ("rail", "light_rail"):
+        continue
+    pts = []
+    for r in refs:
+        if r in nodes:
+            lon, lat, _ = nodes[r]
+            x, z = xy(lon, lat)
+            pts.append((round(x, 1), round(z, 1)))
+    if len(pts) < 2:
+        continue
+    L = sum(math.dist(pts[i], pts[i+1]) for i in range(len(pts)-1))
+    if L < 20:
+        continue
+    rails.append({"name": tags.get("name", ""), "pts": pts})
+print("segments de voie:", len(rails),
+      "| longueur totale:", round(sum(
+          sum(math.dist(r["pts"][i], r["pts"][i+1]) for i in range(len(r["pts"])-1))
+          for r in rails) / 1000, 1), "km")
+
+stations = []
+for wid, (refs, tags) in ways.items():
+    if tags.get("railway") != "station":
+        continue
+    pts = [nodes[r] for r in refs if r in nodes]
+    if len(pts) < 2:
+        continue
+    lon = sum(p[0] for p in pts) / len(pts)
+    lat = sum(p[1] for p in pts) / len(pts)
+    x, z = xy(lon, lat)
+    a0 = xy(pts[0][0], pts[0][1])
+    a1 = xy(pts[1][0], pts[1][1])
+    ang = math.atan2(a1[0] - a0[0], a1[1] - a0[1])
+    length = sum(math.dist(xy(pts[i][0], pts[i][1]), xy(pts[i+1][0], pts[i+1][1]))
+                 for i in range(len(pts)-1))
+    stations.append({"name": tags.get("name", ""), "x": round(x, 1), "z": round(z, 1),
+                     "ang": round(ang, 3), "len": round(length, 1)})
+print("stations:", [(s["name"], s["x"], s["z"]) for s in stations])
+
+crossings = []
+for nid, (lon, lat, tags) in nodes.items():
+    if tags.get("railway") == "level_crossing":
+        x, z = xy(lon, lat)
+        crossings.append({"x": round(x, 1), "z": round(z, 1)})
+print("passages a niveau:", len(crossings))
+
 # ---------- Points d'interet ----------
 POI_CATS = {"marketplace": "marche", "place_of_worship": "culte", "school": "ecole",
             "hospital": "sante", "clinic": "sante", "pharmacy": "pharmacy",
-            "university": "universite", "college": "universite", "kindergarten": "ecole"}
+            "university": "universite", "college": "universite", "kindergarten": "ecole",
+            "stadium": "stade", "sports_centre": "stade", "park": "parc"}
+
+BUILDING_CATS = {"hospital": "sante", "clinic": "sante", "school": "ecole",
+                 "university": "universite", "church": "culte", "chapel": "culte"}
+
+def poi_cat(tags):
+    return (POI_CATS.get(tags.get("amenity")) or POI_CATS.get(tags.get("leisure"))
+            or BUILDING_CATS.get(tags.get("building")))
 
 pois = []
 seen = set()
@@ -85,7 +146,7 @@ def add_poi(name, cat, lon, lat, desc=""):
     pois.append({"name": name, "cat": cat, "x": round(x, 1), "z": round(z, 1), "desc": desc})
 
 for wid, (refs, tags) in ways.items():
-    cat = POI_CATS.get(tags.get("amenity"))
+    cat = poi_cat(tags)
     nm = tags.get("name")
     if cat and nm and refs:
         pts = [nodes[r] for r in refs if r in nodes]
@@ -95,10 +156,28 @@ for wid, (refs, tags) in ways.items():
             add_poi(nm, cat, lon, lat)
 
 for nid, (lon, lat, tags) in nodes.items():
-    cat = POI_CATS.get(tags.get("amenity"))
+    cat = poi_cat(tags)
     nm = tags.get("name")
     if cat and nm:
         add_poi(nm, cat, lon, lat)
+
+# relations (ex : Hôpital Nsona-Nkulu = multipolygone building=hospital)
+for rid, (mrefs, tags) in rels.items():
+    cat = poi_cat(tags)
+    nm = tags.get("name")
+    if not (cat and nm):
+        continue
+    pts = []
+    for wr in mrefs:
+        if wr in ways:
+            for r in ways[wr][0]:
+                if r in nodes:
+                    pts.append(nodes[r])
+    if len(pts) < 3:
+        continue
+    lon = sum(p[0] for p in pts) / len(pts)
+    lat = sum(p[1] for p in pts) / len(pts)
+    add_poi(nm, cat, lon, lat)
 
 # ---------- Lieux manuels (une "evocation", comme Moto Wewa) ----------
 def find_poi(sub, cat=None):
@@ -139,11 +218,26 @@ if uk:
                    "lon": uk[0] + 0.0011, "lat": uk[1] + 0.0009,
                    "desc": "Foufou, poisson sec, et le thé à 200 francs."})
 
+# Stade : non tagge dans le rayon -> vraies coord Nominatim (avenue Nsasa)
+if not any(p["cat"] == "stade" for p in pois):
+    manual.append({"name": "Stade de Mbanza-Ngungu", "cat": "stade",
+                   "lon": 14.8594804, "lat": -5.2490186,
+                   "desc": "Le stade de la ville, avenue Nsasa : matchs et fêtes de la ligue du Kongo-Central."})
+
 for m in manual:
     add_poi(m["name"], m["cat"], m["lon"], m["lat"], m["desc"])
 
+# Les gares deviennent des POI (pour « Où est la gare ? »)
+for st in stations:
+    if st["name"]:
+        lon = LON0 + st["x"] / MPD_LON
+        lat = LAT0 - st["z"] / MPD_LAT
+        add_poi(st["name"], "gare", lon, lat)
+
 # descriptions pour certains POI reels
 DESCS = {
+    "gare centrale": "Gare de Mbanza-Ngungu (ex-Thysville), étape principale de la ligne Matadi-Kinshasa, en service depuis 1898.",
+    "hôpital nsona": "Hôpital général de référence de la ville, quartier Mvela.",
     "marche central": "Le cœur commerçant de Mbanza-Ngungu : tomates, pagnes, crédit de la semaine.",
     "lycée bankazi": "Grand lycée de la ville, classes bondées, réputation solide.",
     "tribunal de paix": "Le tribunal du territoire, juste à côté de la place.",
@@ -159,7 +253,8 @@ print("POI:", len(pois))
 for p in pois[:40]:
     print("   -", p["name"], "|", p["cat"])
 
-out = {"roads": roads, "pois": pois, "origin": [LON0, LAT0]}
+out = {"roads": roads, "pois": pois, "rails": rails, "stations": stations,
+       "crossings": crossings, "origin": [LON0, LAT0]}
 with open(os.path.join(HERE, "roads.js"), "w", encoding="utf-8") as f:
     f.write("window.WEWA_DATA = ")
     json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
