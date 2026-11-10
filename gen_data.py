@@ -4,7 +4,7 @@ import xml.etree.ElementTree as ET
 import json, math, os
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-FILES = ["mbanza.xml", "mbanza_b.xml", "mbanza_c.xml"]
+FILES = ["mbanza.xml", "mbanza_b.xml", "mbanza_c.xml", "mbanza_d.xml"]
 
 # Origine locale (metres) au centre de la zone de jeu
 LON0, LAT0 = 14.85, -5.2585
@@ -157,6 +157,32 @@ for wid, (refs, tags) in ways.items():
     blds.append(flat)
 print("batiments reels:", len(blds))
 
+# ---------- Batiments nommes (pancartes / lieux reconnus) ----------
+bldNames = []
+for wid, (refs, tags) in ways.items():
+    if "building" not in tags:
+        continue
+    nm = tags.get("name")
+    if not nm or len(nm) < 3 or len(nm) > 80:
+        continue
+    pts = []
+    for r in refs:
+        if r in nodes:
+            lon, lat, _ = nodes[r]
+            x, z = xy(lon, lat)
+            pts.append((round(x, 1), round(z, 1)))
+    if len(pts) < 4:
+        continue
+    if pts[0] == pts[-1]:
+        pts = pts[:-1]
+    if len(pts) < 3:
+        continue
+    flat = []
+    for p in pts:
+        flat.extend(p)
+    bldNames.append({"name": nm, "kind": tags.get("building", ""), "pts": flat})
+print("batiments nommes:", len(bldNames))
+
 # ---------- Points d'interet ----------
 POI_CATS = {"marketplace": "marche", "place_of_worship": "culte", "school": "ecole",
             "hospital": "sante", "clinic": "sante", "pharmacy": "pharmacy",
@@ -244,8 +270,8 @@ if uk:
 
 # ISP : pas encore sur OSM -> on la place au centre-ville (evocation)
 manual.append({"name": "ISP Mbanza-Ngungu", "cat": "universite",
-               "lon": 14.8685, "lat": -5.2505,
-               "desc": "Institut Supérieur Pédagogique, ouvert en 1981 : le premier établissement supérieur du Kongo-Central."})
+               "lon": 14.857064, "lat": -5.268728,   # ROND-POINT I.S.P. -- entree du campus (map.osm)
+               "desc": "Institut Supérieur Pédagogique, le premier établissement supérieur du Kongo-Central. Le campus : home ISP, home étudiant, rectorat."})
 manual.append({"name": "Cyber Café MwegISA", "cat": "cyber",
                "lon": 14.8678, "lat": -5.2512,
                "desc": "Impressions, forfaits 1h, et le ventilateur qui grince."})
@@ -290,7 +316,7 @@ for p in pois[:40]:
     print("   -", p["name"], "|", p["cat"])
 
 out = {"roads": roads, "pois": pois, "rails": rails, "stations": stations,
-       "crossings": crossings, "blds": blds, "origin": [LON0, LAT0]}
+       "crossings": crossings, "blds": blds, "bldNames": bldNames, "origin": [LON0, LAT0]}
 with open(os.path.join(HERE, "roads.js"), "w", encoding="utf-8") as f:
     f.write("window.WEWA_DATA = ")
     json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
