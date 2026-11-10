@@ -1,0 +1,16 @@
+{
+  "players": [
+    null,
+    null,
+    null,
+    null,
+    { "file": "hero_ps1.glb", "height": 1.78 },
+    { "file": "casual_man.glb", "height": 1.75 }
+  ],
+  "walkers": [
+    { "file": "casual_man.glb", "height": 1.72 },
+    { "file": "gman.glb", "height": 1.72 },
+    { "file": "man_woman_walk.glb", "height": 1.72 },
+    { "file": "runner.glb", "height": 1.72 }
+  ]
+}

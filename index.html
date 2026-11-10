@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Luvaka — une journée d'étudiant à Mbanza-Ngungu</title>
 <style>
   :root{
@@ -93,6 +93,51 @@
   .endbox{ background:#101826; border:1px solid #2a3650; border-radius:12px; padding:12px 20px; min-width:130px; }
   .endbox b{ display:block; font-size:26px; color:var(--gold); }
   .endbox span{ font-size:12px; color:#7f8ea6; text-transform:uppercase; letter-spacing:1px; }
+
+  /* ---------- commandes tactiles (joystick + boutons) ---------- */
+  #touch{ display:none; position:absolute; inset:0; pointer-events:none; z-index:15; }
+  body.touch #touch{ display:block; }
+  body.touch{ touch-action:manipulation; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; overscroll-behavior:none; }
+  body.touch #help, body.touch #voice{ display:none; }
+  #touch.idle #joy, #touch.idle #actions{ opacity:.25; pointer-events:none; }
+  #joy{ pointer-events:auto; position:absolute; left:calc(18px + env(safe-area-inset-left, 0px)); bottom:calc(18px + env(safe-area-inset-bottom, 0px));
+        width:136px; height:136px; border-radius:50%; background:rgba(8,12,20,.45); border:2px solid rgba(255,255,255,.25); touch-action:none; }
+  #joyKnob{ position:absolute; left:50%; top:50%; width:58px; height:58px; margin:-29px 0 0 -29px; border-radius:50%;
+            background:rgba(79,209,197,.55); border:2px solid rgba(255,255,255,.6); pointer-events:none; }
+  #actions{ pointer-events:auto; position:absolute; right:calc(16px + env(safe-area-inset-right, 0px)); bottom:calc(18px + env(safe-area-inset-bottom, 0px));
+            display:flex; flex-direction:column; gap:10px; }
+  #actions button, #fabs button{ width:66px; height:66px; margin:0; padding:0; border-radius:50%; font-size:24px; line-height:1.05;
+            background:rgba(8,12,20,.62); color:#fff; border:2px solid rgba(255,255,255,.3); touch-action:manipulation; }
+  #actions button small{ display:block; font-size:10px; font-weight:600; }
+  #actions button.on{ background:rgba(79,209,197,.8); color:#06222a; border-color:#fff; }
+  #fabs{ pointer-events:auto; position:absolute; left:50%; transform:translateX(-50%); bottom:calc(18px + env(safe-area-inset-bottom, 0px)); display:flex; gap:12px; }
+  #fabs button{ width:46px; height:46px; font-size:19px; }
+  #fabs button.on{ background:rgba(72,187,120,.85); border-color:#fff; }
+  body.touch #hud{ min-width:0; padding:8px 11px; }
+  body.touch #hud h1{ font-size:14px; }
+  body.touch #hud .day{ font-size:10px; margin-bottom:4px; }
+  body.touch .stat{ font-size:12px; margin:2px 0; gap:8px; }
+  body.touch #objcard{ min-width:0; width:min(360px, 42vw); padding:8px 11px; }
+  body.touch #objcard h2{ font-size:14px; }
+  body.touch #objcard .hint{ font-size:11px; }
+  body.touch #objcard .meta{ font-size:11px; gap:10px; }
+  body.touch #minimapWrap{ padding:5px; }
+  body.touch #minimap{ width:112px; height:112px; }
+  body.touch #minimapWrap .credit{ font-size:7px; margin-top:3px; }
+  @media (max-height:480px){
+    #joy{ width:116px; height:116px; }
+    #actions{ gap:7px; }
+    #actions button{ width:54px; height:54px; font-size:20px; }
+    #actions button small{ font-size:9px; }
+  }
+  @media (max-height:480px){
+    body.touch #objHint{ display:none; }
+  }
+  @media (max-width:640px){
+    body.touch #objcard{ top:158px; left:14px; transform:none; width:calc(100vw - 28px); max-width:none; }
+    #fabs{ bottom:calc(172px + env(safe-area-inset-bottom, 0px)); }
+    body.touch #toast{ bottom:230px; }
+  }
 </style>
 </head>
 <body>
@@ -144,6 +189,20 @@
     <tr><td>« Pause » · « Rejouer »</td><td>gestion</td></tr>
   </table>
   <p style="margin-top:7px;color:#7f8ea6">Clavier : <kbd>↑</kbd> marcher <kbd>⇧</kbd> courir <kbd>←</kbd><kbd>→</kbd> tourner</p>
+</div>
+
+<div id="touch">
+  <div id="joy"><div id="joyKnob"></div></div>
+  <div id="fabs">
+    <button id="pauseFab" aria-label="Pause">⏸</button>
+    <button id="micFab" aria-label="Micro">🎤</button>
+    <button id="fsFab" aria-label="Plein écran">⛶</button>
+  </div>
+  <div id="actions">
+    <button id="actRun">🏃<small>Courir</small></button>
+    <button id="actWalk">🚶<small>Marcher</small></button>
+    <button id="actStop">⏹<small>Stop</small></button>
+  </div>
 </div>
 
 <div id="toast"></div>
@@ -205,16 +264,11 @@
 </div>
 
 <script type="importmap">
-{ "imports": {
-  "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-  "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-} }
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } }
 </script>
 <script src="roads.js"></script>
 <script type="module">
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
 const D = window.WEWA_DATA;
 const $ = id => document.getElementById(id);
@@ -247,8 +301,10 @@ const LS = {
   set(k, v){ try { localStorage.setItem(k, v); } catch(_){} },
   del(k){ try { localStorage.removeItem(k); } catch(_){} },
 };
+const IS_TOUCH = matchMedia('(pointer:coarse)').matches || 'ontouchstart' in window || new URLSearchParams(location.search).has('touch');
+document.body.classList.toggle('touch', IS_TOUCH);
 function detectTier(){
-  const touch = matchMedia('(pointer:coarse)').matches || 'ontouchstart' in window;
+  const touch = IS_TOUCH;
   const cores = navigator.hardwareConcurrency || 4;
   const mem = navigator.deviceMemory || 4;
   let t;
@@ -326,7 +382,10 @@ function refreshMaterials(root){
   root.traverse(o => {
     if (!o.isMesh || !o.material || Array.isArray(o.material)) return;
     const m = o.material;
-    if (hi){ if (m.isMeshLambertMaterial) o.material = toStandard(m); }
+    if (hi){
+      if (m.isMeshLambertMaterial) o.material = toStandard(m);
+      else if (m.isMeshStandardMaterial && m.userData.lambert && !m.envMap){ m.envMap = getEnvTex(); m.envMapIntensity = 0.45; m.needsUpdate = true; }
+    }
     else if (m.userData && m.userData.lambert){ o.material = m.userData.lambert; }
   });
 }
@@ -527,7 +586,7 @@ let satInfo = null;                                  // { cv, px, pz, spanX, spa
     const lon2tx = lon => Math.floor((lon + 180) / 360 * pow);
     const lat2ty = lat => Math.floor((1 - Math.log(Math.tan(lat*Math.PI/180) + 1/Math.cos(lat*Math.PI/180)) / Math.PI) / 2 * pow);
     const tx0 = lon2tx(lon0), tx1 = lon2tx(lon1);
-    const ty0 = lat2ty(latNord), ty1 = lat2ty(latSud);      // ty0 = ranghee nord
+    const ty0 = lat2ty(latNord), ty1 = lat2ty(latSud);      // ty0 = rangee nord
     const nX = tx1 - tx0 + 1, nY = ty1 - ty0 + 1;
     if (nX < 1 || nY < 1 || nX * nY > 64){ console.log('satellite ignore (' + nX + 'x' + nY + ' tuiles)'); return; }
     const tile2lon = x => x / pow * 360 - 180;
@@ -932,7 +991,7 @@ function buildSignAtlas(){
   return new THREE.CanvasTexture(cv);
 }
 
-/* --- batiments le long des routes --- */
+/* --- batiments REELS : empreintes OSM aux vraies positions (la vraie ville) --- */
 const bldA = makeArrays();
 const roofA = makeArrays();
 const signA = makeArrays();
@@ -940,11 +999,10 @@ const bldRects = [];
 const WALLS = ['#b4653f','#c98d63','#cfa878','#ece5d6','#d9b47a','#b8703f','#e0d5c0','#a85a38','#d8c8a8','#c2734a']; // brique, banco, blanc delave
 const ROOFS = ['#b9c0c6','#9aa3ab','#8a6a52','#6d8494','#a06a4e','#7f878e','#5f7f92','#b08060'];  // tole ondulee
 const BLDS = D.blds || [];
+const buildRoads = D.roads.filter(r => MAJOR.has(r.type) && r.type !== 'pedestrian');
 
-/* --- batiments REELS : empreintes OSM aux vraies positions (la vraie ville) --- */
 const majPts = [];                                   // points des avenues (pour poser les enseignes)
-for (const r of D.roads) if (MAJOR.has(r.type) && r.type !== 'pedestrian')
-  for (let i = 0; i < r.pts.length; i += 3) majPts.push(r.pts[i]);
+for (const r of buildRoads) for (let i = 0; i < r.pts.length; i += 3) majPts.push(r.pts[i]);
 
 function pushCol(arr, col, n){ for (let i = 0; i < n; i++) arr.col.push(col.r, col.g, col.b); }
 
@@ -1033,7 +1091,6 @@ for (const poly of BLDS){
   bldRects.push({ x:(Math.min(...xs)+Math.max(...xs))/2, z:(Math.min(...zs)+Math.max(...zs))/2, w:bw, d:bd });
 }
 console.log('batiments reels dessines :', BLDS.length);
-const buildRoads = D.roads.filter(r => MAJOR.has(r.type) && r.type !== 'pedestrian');
 
 /* test "ce point est-il dans un batiment ?" (foule, objets, placements) */
 function insideBld(x, z, m){
@@ -1678,45 +1735,16 @@ const CHARS = [
     bag:0x9b5de5, bagFront:true, hair:'wrap', hairColor:0xd96c8a, hint:'Pagno & foulard' },
   { name:'Mwana', gender:'f', skin:0x5d3d2a, shirt:0x6ba3d6, pants:0x2f3d55, bag:0xd96c8a,
     hair:'ponytail', collar:true, sleeves:true, hint:'Chemise & queue de cheval' },
-  { name:'Kabeya', gender:'m', glb:'models/hero_ps1.glb', hint:'Modèle 3D téléchargé (style PS1)' },
-  { name:'Kito', gender:'m', glb:'models/casual_man.glb', hint:'Modèle 3D animé (vraie marche)' },
+  { name:'Kabeya', gender:'m', skin:0x6b4530, shirt:0xf4f1e6, pants:0x2b3a57, bag:0x2f6f4f,
+    hair:'short', collar:true, hint:'Le doyen du campus (3D)' },
+  { name:'Kito', gender:'m', skin:0x5d3d2a, shirt:0x4a90d6, pants:0x2f3d55, bag:0x8b5e3c,
+    hair:'short', hint:'Décontracté du quartier (3D)' },
 ];
 let charIdx = 0;
-let glbBones = null;                       // os du modele 3D (marche animee)
-let charMixer = null;                      // animation du personnage joueur
-const mixers = [];                         // tous les AnimationMixer actifs
-const glbTpls = {};                        // url -> {tpl, clip} modeles 3D personnage charges
 let torso = null, legL = null, legR = null, armL = null, armR = null;
 let charGroup = null;
 
 function makeStudent(cfg){
-  if (cfg.glb){                            // personnage = modele 3D telecharge
-    const t = glbTpls[cfg.glb];
-    if (t){
-      const c = SkeletonUtils.clone(t.tpl);
-      c.traverse(o => { if (o.isMesh) o.castShadow = true; });
-      torso = legL = legR = armL = armR = null;
-      glbBones = null;
-      if (t.clip){                         // modele anime : vraie marche sur place
-        charMixer = new THREE.AnimationMixer(c);
-        charMixer.clipAction(t.clip).play();
-        mixers.push(charMixer);
-      } else {                             // squelette sans clip : on anime les os a la main
-        glbBones = {};
-        c.traverse(o => {
-          if (!o.isBone) return;
-          if (o.name === 'upper_arm_left_07') glbBones.la = o;
-          else if (o.name === 'upper_arm_right_014') glbBones.ra = o;
-          else if (o.name === 'thigh_left_020') glbBones.ll = o;
-          else if (o.name === 'thigh_right_023') glbBones.rl = o;
-        });
-      }
-      c.userData.glb = true;
-      return c;
-    }
-    return makeStudent({ gender:'m', skin:0x6b4530, shirt:0xd9534f, pants:0x2b3a57, hair:'short' }); // pas encore charge : provisoire
-  }
-  glbBones = null;
   const g = new THREE.Group();
   const M = c => new THREE.MeshLambertMaterial({ color: c });
   const mSkin = M(cfg.skin), mShirt = M(cfg.shirt), mBag = M(cfg.bag);
@@ -1800,22 +1828,71 @@ function makeStudent(cfg){
   return g;
 }
 
+/* ============================ MODELES .GLB (optionnels) ============================ */
+/* Si le dossier models/ contient un models.json, les personnages .glb remplacent les
+   personnages en cubes (joueur + pietons). Sans models.json ou si un fichier manque,
+   le jeu garde les personnages actuels : rien ne casse. Voir models/README.md. */
+const MODELS = { players: [], walkers: [], instantiate: null };
+const DUMMY_BONE = new THREE.Object3D();          // cible inoffensive pour l'animation en cubes
+const CLIP_RX = [['idle', /idle|stand|repos|attente/i], ['run', /run|sprint|jog|cour/i], ['walk', /walk|marche/i]];
+let pAnim = null;                                  // animation du joueur (modele .glb)
+
+function classifyClips(clips, out){
+  for (const c of clips) for (const [k, rx] of CLIP_RX){ if (!out[k] && rx.test(c.name)){ out[k] = c; break; } }
+}
+function playerAnimStep(dt, spd, run){
+  if (!pAnim) return;
+  const A = pAnim.actions;
+  const want = spd < 0.25 ? 'idle' : (run && spd > walkV * 1.15 && A.run ? 'run' : 'walk');
+  const act = A[want] || (want === 'idle' ? A.walk : null) || A.walk || A.idle;
+  if (act && pAnim.cur !== act){
+    act.reset().fadeIn(0.18).play();
+    if (pAnim.cur) pAnim.cur.fadeOut(0.18);
+    pAnim.cur = act;
+  }
+  if (pAnim.cur){
+    if (pAnim.cur === A.walk) pAnim.cur.timeScale = want === 'idle' ? 0 : Math.max(0.5, spd / walkV);
+    else if (pAnim.cur === A.run) pAnim.cur.timeScale = Math.max(0.6, spd / runV * 1.3);
+    else pAnim.cur.timeScale = 1;
+  }
+  pAnim.mixer.update(dt);
+}
+function makePedestrian(){                         // {g, mixer?, actions?} : modele .glb si dispo, sinon cubes
+  if (MODELS.walkers.length && MODELS.instantiate){
+    const inst = MODELS.instantiate(MODELS.walkers[Math.floor(Math.random() * MODELS.walkers.length)]);
+    const a = inst.actions.walk || inst.actions.idle || inst.actions.run;
+    if (a){ a.play(); a.time = Math.random() * a.getClip().duration; }
+    return { g: inst.group, mixer: inst.mixer, actions: inst.actions };
+  }
+  return { g: makePerson() };
+}
+function freezePose(ped){                          // pour la foule : une pose figee, sans cout d'animation
+  if (!ped.mixer) return;
+  const a = ped.actions.idle || ped.actions.walk;
+  if (!a) return;
+  a.play(); a.time = Math.random() * a.getClip().duration;
+  ped.mixer.update(0); a.paused = true;
+  ped.mixer = null;
+}
+
 function applyCharacter(i){
   charIdx = i;
-  if (charMixer){                          // retire l'ancienne animation du joueur
-    const mi = mixers.indexOf(charMixer);
-    if (mi >= 0) mixers.splice(mi, 1);
-    charMixer = null;
-  }
+  if (pAnim){ pAnim.mixer.stopAllAction(); pAnim = null; }
   if (charGroup){
-    if (!charGroup.userData.glb){          // ne jamais liberer les geometries GLB partagees
-      charGroup.traverse(o => { if (o.isMesh){ o.geometry.dispose(); o.material.dispose(); } });
-    }
+    if (!charGroup.userData.glb) charGroup.traverse(o => { if (o.isMesh){ o.geometry.dispose(); o.material.dispose(); } });
     player.remove(charGroup);
   }
-  charGroup = makeStudent(CHARS[i]);
+  const proto = MODELS.players[i];
+  if (proto && MODELS.instantiate){
+    const inst = MODELS.instantiate(proto);
+    charGroup = inst.group;
+    charGroup.userData.glb = true;
+    pAnim = { mixer: inst.mixer, actions: inst.actions, cur: null };
+    torso = legL = legR = armL = armR = DUMMY_BONE;
+  } else {
+    charGroup = makeStudent(CHARS[i]);
+  }
   charGroup.traverse(o => { if (o.isMesh) o.castShadow = true; });
-  if (charGroup.userData.glb) prepGLB(charGroup);
   refreshMaterials(charGroup);
   player.add(charGroup);
 }
@@ -1861,24 +1938,11 @@ const walkRoads = buildRoads.filter(r => r.pts.length > 4 && r.w >= 7);
 let walkersActive = 0;
 function spawnWalker(){
   const r = walkRoads[Math.floor(Math.random()*walkRoads.length)];
-  let g = null, animated = false;
-  if (npcPool.length){                     // modele 3D anime (marche reelle)
-    const n = npcPool[Math.floor(Math.random()*npcPool.length)];
-    g = SkeletonUtils.clone(n.tpl);
-    if (n.clip){
-      const mx = new THREE.AnimationMixer(g);
-      const act = mx.clipAction(n.clip);
-      act.timeScale = n.ts;
-      act.time = Math.random() * (n.clip.duration || 1);   // chacun son rythme, pas de marche synchrone
-      act.play();
-      mixers.push(mx);
-      animated = true;
-    }
-  }
-  if (!g){ g = makePerson(); animated = false; }
+  const ped = makePedestrian(), g = ped.g;
   g.traverse(o => { if (o.isMesh) o.castShadow = true; });
   scene.add(g);
-  walkers.push({ g, animated, pts: r.pts, t: Math.random(), dir: Math.random()<.5?1:-1, sp: 0.00004+Math.random()*0.00004, off: r.w/2+1.2 });
+  if (ped.mixer) refreshMaterials(g);
+  walkers.push({ g, mixer: ped.mixer, pts: r.pts, t: Math.random(), dir: Math.random()<.5?1:-1, sp: 0.00004+Math.random()*0.00004, off: r.w/2+1.2 });
 }
 function ensureWalkers(n){ while (walkers.length < n) spawnWalker(); }
 function makeCar(){
@@ -1905,7 +1969,6 @@ const bigRoads = [...buildRoads].sort((a,b) => {
 });
 for (let i = 0; i < Math.min(7, bigRoads.length); i++){
   const g = makeCar();
-  g.userData.boxCar = true;                 // remplace par les modeles GLB des telecharges
   g.traverse(o => { if (o.isMesh) o.castShadow = true; });
   scene.add(g);
   cars.push({ g, pts: bigRoads[i].pts, t: Math.random(), dir: Math.random()<.5?1:-1, sp: 0.000045+Math.random()*0.00004 });
@@ -1967,267 +2030,44 @@ function makeMinibus(){
 for (let i = 0; i < 7; i++){
   const g = makeMoto();
   g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  g.userData.boxCar = true;                 // remplace par les vehicules GLB telecharges
   scene.add(g);
   cars.push({ g, pts: bigRoads[i % bigRoads.length].pts, t: Math.random(),
               dir: Math.random()<.5?1:-1, sp: 0.00010 + Math.random()*0.00005 });
 }
 for (let i = 0; i < 4; i++){
   const g = makeMinibus();
-  g.userData.minibus = true;                // 2 d'entre eux seront remplaces par le LuAZ
   g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  g.userData.minibus = true;                // 2 d'entre eux seront remplaces par le LuAZ
   scene.add(g);
   cars.push({ g, pts: bigRoads[(i*2+1) % bigRoads.length].pts, t: Math.random(),
               dir: Math.random()<.5?1:-1, sp: 0.00004 + Math.random()*0.00003 });
 }
 
-/* ============================ MODELES 3D TELECHARGES (GLB) ============================ */
-const gltfLoader = new GLTFLoader();
-let heroTpl = null;                       // personnage PS1 rigge (foule + pietons)
-let crowdTpl = null;                      // modele anime de la foule du marche
-
-/* Ajuste un modele telecharge : echelle reelle, sol a y=0, centre en x/z.
-   byHeight = on cale sur la hauteur (personnage), sinon sur la longueur (vehicule).
-   Un modele "debout" (LuAZ) est automatiquement couche a plat. */
-function fitModel(obj, target, byHeight){
-  obj.updateMatrixWorld(true);
-  let box = new THREE.Box3().setFromObject(obj);
-  let size = box.getSize(new THREE.Vector3());
-  if (!isFinite(size.x) || size.lengthSq() < 1e-6) return null;
-  if (!byHeight && size.y > target*0.75 && size.y > size.x && size.y > size.z){
-    obj.rotation.x = -Math.PI/2;            // il etait vertical : on le couche
-    obj.updateMatrixWorld(true);
-    box = new THREE.Box3().setFromObject(obj);
-    size = box.getSize(new THREE.Vector3());
-  }
-  const span = byHeight ? size.y : Math.max(size.x, size.z);
-  const s = target / (span || 1);
-  const c = box.getCenter(new THREE.Vector3());
-  obj.scale.setScalar(s);
-  obj.position.set(-c.x*s, -box.min.y*s, -c.z*s);
-  const g = new THREE.Group();
-  g.add(obj);
-  return g;
-}
-function prepGLB(g){
-  g.traverse(o => {
-    if (!o.isMesh) return;
-    o.castShadow = true;
-    const m = o.material;
-    if (m && m.isMeshStandardMaterial && QUALITY[tier].std){
-      m.envMap = getEnvTex(); m.envMapIntensity = 0.45; m.needsUpdate = true;
-    }
-    if (m && m.map) m.map.anisotropy = 4;
-  });
-  return g;
-}
-function addGlbTraffic(url, targetLen, n, roadIdx, removeFlag){
-  gltfLoader.load(url, gltf => {
-    for (let i = 0; i < n; i++){
-      const g = fitModel(gltf.scene.clone(true), targetLen, false);
-      if (!g) return;
-      prepGLB(g);
-      const r = bigRoads[(roadIdx + i*2) % bigRoads.length];
-      scene.add(g);
-      cars.push({ g, pts: r.pts, t: Math.random(), dir: Math.random()<.5?1:-1,
-                  sp: 0.000045 + Math.random()*0.00004 });
-    }
-    let removed = 0;                       // on retire les vehicules provisoires
-    for (let i = cars.length-1; i >= 0 && removed < n; i--){
-      if (cars[i].g.userData[removeFlag]){
-        scene.remove(cars[i].g);
-        cars.splice(i, 1);
-        removed++;
-      }
-    }
-    console.log('GLB OK :', url);
-  }, undefined, e => console.log('GLB rate :', url, e));
-}
-addGlbTraffic('models/mercedes.glb',    4.6, 2, 0, 'boxCar');
-addGlbTraffic('models/fairheaven.glb',  4.5, 2, 3, 'boxCar');
-addGlbTraffic('models/fiat_punto.glb',  4.0, 3, 5, 'boxCar');
-addGlbTraffic('models/luaz.glb',        3.9, 2, 7, 'minibus');
-
-/* --- morceaux de voie telecharges : pose sur la vraie ligne pres de la gare --- */
-gltfLoader.load('models/rail_piece.glb', gltf => {
-  const piece = fitModel(gltf.scene, 6.0, false);          //6 m de long, pose a plat
-  if (!piece) return;
-  prepGLB(piece);
-  const stList = D.stations || [];
-  const gs = stList.find(s => /gare/i.test(s.name || '')) || stList[0];
-  if (!gs || !D.rails || !D.rails.length) return;
-  let best = null, bd = 1e9, bi = 0;
-  for (const rl of D.rails){
-    for (let i = 0; i < rl.pts.length; i++){
-      const d = Math.hypot(rl.pts[i][0]-gs.x, rl.pts[i][1]-gs.z);
-      if (d < bd){ bd = d; best = rl; bi = i; }
-    }
-  }
-  if (!best) return;
-  const pts = best.pts;
-  const cum = [0];
-  for (let i = 1; i < pts.length; i++)
-    cum.push(cum[i-1] + Math.hypot(pts[i][0]-pts[i-1][0], pts[i][1]-pts[i-1][1]));
-  const at = s => {                           // position + angle a distance s du depart
-    let i = 1;
-    while (i < cum.length-1 && cum[i] < s) i++;
-    const t = (s - cum[i-1]) / Math.max(0.001, cum[i]-cum[i-1]);
-    const a = pts[i-1], b = pts[i];
-    return { x: a[0]+(b[0]-a[0])*t, z: a[1]+(b[1]-a[1])*t,
-             ang: Math.atan2(b[0]-a[0], b[1]-a[1]) };
-  };
-  for (let k = -10; k <= 10; k++){           //21 pieces x6 m =126 m autour de la gare
-    const s = cum[bi] + k*6;
-    if (s < 0 || s > cum[cum.length-1]) continue;
-    const p = at(s);
-    const g = piece.clone(true);
-    g.position.set(p.x, 0, p.z);
-    g.rotation.y = p.ang;
-    scene.add(g);
-  }
-  console.log('GLB OK : rail_piece (126 m pres de la gare)');
-}, undefined, e => console.log('GLB rate : rail_piece', e));
-
-/* --- personnage PS1 : moitie de la foule du marche + quelques pietons --- */
-gltfLoader.load('models/hero_ps1.glb', gltf => {
-  const tpl = fitModel(gltf.scene, 1.72, true);
-  if (!tpl) return;
-  prepGLB(tpl);
-  heroTpl = tpl;
-  glbTpls['models/hero_ps1.glb'] = { tpl, clip: null };
-  if (CHARS[charIdx].glb) applyCharacter(charIdx);   // le joueur porte deja ce modele : on l'applique
-  const clone = () => {
-    const g = heroTpl.clone(true);
-    g.traverse(o => { if (o.isMesh) o.castShadow = true; });
-    return g;
-  };
-  if (!crowdTpl){                           // (si la foule animee est deja la, on n'ecrase pas)
-    for (let i = 0; i < crowd.length; i += 2){          // foule du marche
-      const old = crowd[i];
-      const g = clone();
-      g.position.copy(old.position);
-      g.rotation.y = old.rotation.y;
-      g.visible = old.visible;
-      scene.add(g);
-      scene.remove(old);
-      crowd[i] = g;
-    }
-  }
-  for (let i = 0; i < walkers.length; i += 3){        // pietons qui marchent
-    const w = walkers[i];
-    const g = clone();
-    g.visible = w.g.visible;
-    scene.add(g);
-    scene.remove(w.g);
-    w.g = g;
-  }
-  console.log('GLB OK : hero_ps1 (foule + pietons)');
-}, undefined, e => console.log('GLB rate : hero_ps1', e));
-
-/* --- modele de personnage partage : charge une fois, clonee partout --- */
-function loadCharTpl(url, cb){
-  if (glbTpls[url]){ cb(glbTpls[url]); return; }
-  gltfLoader.load(url, gltf => {
-    const raw = (gltf.animations || [])[0] || null;
-    let clip = null;
-    if (raw){
-      clip = raw.clone();                  // sans les tracks de translation : marche sur place
-      clip.tracks = clip.tracks.filter(t => !/\.position$/.test(t.name));
-    }
-    const tpl = fitModel(gltf.scene, 1.72, true);
-    if (!tpl){ cb(null); return; }
-    prepGLB(tpl);
-    const entry = { tpl, clip };
-    glbTpls[url] = entry;
-    cb(entry);
-    console.log('GLB OK (personnage) :', url);
-  }, undefined, e => { console.log('GLB rate :', url, e); cb(null); });
-}
-
-/* --- pietons animes : vraie marche/cours sur les chemins --- */
-const npcPool = [];                        // {tpl, clip, ts} — le poids se fait par repetitions
-function addNpc(url, ts, copies){
-  loadCharTpl(url, t => {
-    if (!t) return;
-    for (let i = 0; i < copies; i++) npcPool.push({ tpl: t.tpl, clip: t.clip, ts });
-    // remplace une partie des pietons "boite" deja presents par des modeles animes
-    for (const w of walkers){
-      if (w.animated || Math.random() > 0.45) continue;
-      const n = npcPool[Math.floor(Math.random()*npcPool.length)];
-      const g = SkeletonUtils.clone(n.tpl);
-      g.traverse(o => { if (o.isMesh) o.castShadow = true; });
-      if (n.clip){
-        const mx = new THREE.AnimationMixer(g);
-        const act = mx.clipAction(n.clip);
-        act.timeScale = n.ts;
-        act.time = Math.random() * (n.clip.duration || 1);
-        act.play();
-        mixers.push(mx);
-        w.animated = true;
-      }
-      g.visible = w.g.visible;
-      scene.add(g);
-      scene.remove(w.g);
-      w.g = g;
-    }
-    if (CHARS[charIdx].glb === url) applyCharacter(charIdx);
-  });
-}
-addNpc('models/casual_man.glb', 1.25, 3);       // l'habituel
-addNpc('models/gman.glb', 1.1, 2);              // pas moyen
-addNpc('models/man_woman_walk.glb', 1.1, 2);    // le couple qui se promene
-addNpc('models/runner.glb', 2.1, 1);            // le coureur (plus rare : lourd)
-
-/* --- le "talking man" anime TOUTE la foule du marche : il parle sur place --- */
-loadCharTpl('models/talking_man.glb', t => {
-  if (!t) return;
-  crowdTpl = { tpl: t.tpl, clip: t.clip };
-  const make = () => {
-    const g = SkeletonUtils.clone(t.tpl);
-    g.traverse(o => { if (o.isMesh) o.castShadow = true; });
-    if (t.clip){
-      const mx = new THREE.AnimationMixer(g);
-      const act = mx.clipAction(t.clip);
-      act.time = Math.random() * (t.clip.duration || 1);   // chacun parle a son rythme
-      act.play();
-      mixers.push(mx);
-    }
-    return g;
-  };
-  for (let i = 0; i < crowd.length; i++){     // toute la foule devient animee (fini la pose figee)
-    const old = crowd[i];
-    const g = make();
-    g.position.copy(old.position);
-    g.rotation.y = old.rotation.y;
-    g.visible = old.visible;
-    scene.add(g);
-    scene.remove(old);
-    crowd[i] = g;
-  }
-  if (CHARS[charIdx].glb === 'models/talking_man.glb') applyCharacter(charIdx);
-  console.log('GLB OK : talking_man (foule du marche animee)');
-}, undefined, e => console.log('GLB rate : talking_man', e));
-
 /* --- foule du marché --- */
 const crowd = [];
+let crowdTpl = null;                       // talking_man anime (foule vivante)
 function ensureCrowd(n){
   const mk = poiByName['Marché central'];
   if (!mk) return;
   while (crowd.length < n){
     let g;
-    if (crowdTpl){                          // modele anime des que disponible
-      g = SkeletonUtils.clone(crowdTpl.tpl);
-      if (crowdTpl.clip){
-        const mx = new THREE.AnimationMixer(g);
-        const act = mx.clipAction(crowdTpl.clip);
-        act.time = Math.random() * (crowdTpl.clip.duration || 1);
+    if (crowdTpl && MODELS.instantiate){   // talking_man anime des que disponible
+      const inst = MODELS.instantiate(crowdTpl);
+      g = inst.group;
+      const act = inst.actions.talk;
+      if (act){
+        act.time = Math.random() * (act.getClip().duration || 1);   // chacun a son rythme
         act.play();
-        mixers.push(mx);
+        g.userData.mixer = inst.mixer;     // mis a jour dans updateLife (proximite)
       }
     } else {
-      g = makePerson();
+      const ped = makePedestrian();
+      freezePose(ped);
+      g = ped.g;
     }
     // dans la cour du marche, hors des vrais batiments OSM
-    let a = Math.random()*Math.PI*2, rr = 9 + Math.random()*14;
+    let a = Math.random()*Math.PI*2, rr = 9 + Math.random()*15;
     let x = mk.x + Math.cos(a)*rr, z = mk.z + Math.sin(a)*rr;
     for (let tries = 0; tries < 7 && insideBld(x, z, 1.6); tries++){
       a = Math.random()*Math.PI*2; rr = 8 + Math.random()*17;
@@ -2494,7 +2334,7 @@ $('againBtn').onclick = startGame;
 $('changeBtn').onclick = () => { resetGame(); showOverlay($('menu')); };
 
 /* --- selection de personnage : portraits 2D + cartes --- */
-function drawAvatar(cv, cfg){
+function drawAvatar(cv, cfg, idx){
   const c = cv.getContext('2d');
   const W = cv.width, H = cv.height, cx = W/2;
   const col = h => '#' + h.toString(16).padStart(6, '0');
@@ -2508,7 +2348,7 @@ function drawAvatar(cv, cfg){
     vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.5)');
     c.fillStyle = vg; c.fillRect(0, 0, W, H);
   };
-  if (cfg.glb){                            // carte du modele 3D telecharge
+  if (MODELS.players && MODELS.players[idx]){          // ce personnage a un vrai modele 3D
     const sg = c.createLinearGradient(0, 40, 0, 112);
     sg.addColorStop(0, '#51709c'); sg.addColorStop(1, '#2c3d57');
     c.fillStyle = sg;
@@ -2598,7 +2438,7 @@ function buildCharRow(){
     card.title = ch.hint;
     const cv = document.createElement('canvas');
     cv.width = 104; cv.height = 120;
-    drawAvatar(cv, ch);
+    drawAvatar(cv, ch, i);
     const nm = document.createElement('div');
     nm.textContent = ch.name + (ch.gender === 'f' ? ' ♀' : ' ♂');
     card.appendChild(cv); card.appendChild(nm);
@@ -2621,6 +2461,15 @@ function updatePlayer(dt){
     if (S.keys['KeyA'] || S.keys['ArrowLeft']) turnIn += 1;
     if (S.keys['KeyD'] || S.keys['ArrowRight']) turnIn -= 1;
     if (S.keys['ShiftLeft'] || S.keys['ShiftRight'] || S.vRun) run = true;
+    const jx = S.joyX || 0, jy = S.joyY || 0;                 // joystick virtuel (analogique)
+    if (Math.hypot(jx, jy) > 0.18){
+      const fj = -jy;                                          // pousser vers le haut = avancer
+      if (Math.abs(fj) > 0.25){
+        fwdIn = Math.sign(fj) * Math.min(1, (Math.abs(fj) - 0.2) / 0.6);
+        if (fj > 0.85) run = true;                             // a fond = on court
+      }
+      turnIn -= jx;                                            // droite = tourner a droite
+    }
     if (S.vTurning){
       const step = Math.sign(S.vTurning) * Math.min(Math.abs(S.vTurning), dt * 2.6);
       S.yaw += step; S.vTurning -= step;
@@ -2668,22 +2517,14 @@ function updatePlayer(dt){
   const swing = Math.min(1, spd / runV) * (run ? 1.15 : 0.75);
   animPhase += dt * (2 + spd * 1.15);
   const s = Math.sin(animPhase * 2.2);
-  if (charMixer){                          // modele 3D anime : la vitesse pilote la marche
-    charMixer.timeScale = Math.min(1.3, spd / walkV) * (run ? 1.7 : 1);
-  } else if (legL){
-    legL.rotation.x = s * swing;
-    legR.rotation.x = -s * swing;
-    armL.rotation.x = -s * swing * 0.8;
-    armR.rotation.x = s * swing * 0.8;
-    torso.rotation.x = run ? 0.16 : 0;
-  } else if (glbBones && glbBones.ll){
-    glbBones.ll.rotation.x = s * swing;    // modele 3D : marche sur les os du squelette
-    glbBones.rl.rotation.x = -s * swing;
-    glbBones.la.rotation.x = -s * swing * 0.8;
-    glbBones.ra.rotation.x = s * swing * 0.8;
-  }
+  legL.rotation.x = s * swing;
+  legR.rotation.x = -s * swing;
+  armL.rotation.x = -s * swing * 0.8;
+  armR.rotation.x = s * swing * 0.8;
+  torso.rotation.x = run ? 0.16 : 0;
   player.position.copy(S.pos);
-  player.position.y = Math.abs(Math.sin(animPhase * 2.2)) * 0.05 * Math.min(1, spd/3);
+  playerAnimStep(dt, spd, run);
+  player.position.y = pAnim ? 0 : Math.abs(Math.sin(animPhase * 2.2)) * 0.05 * Math.min(1, spd/3);
   player.rotation.y = S.yaw;
 
   // energie
@@ -2785,6 +2626,16 @@ function updateLife(dt){
     const nx = -(Math.cos(p.ang)), nz = Math.sin(p.ang);
     w.g.position.set(p.x + nx*w.off*Math.sign(w.dir), 0, p.z + nz*w.off*Math.sign(w.dir));
     w.g.rotation.y = p.ang + (w.dir < 0 ? Math.PI : 0);
+    if (w.mixer){                                       // on n'anime que les pietons proches
+      const ddx = w.g.position.x - S.pos.x, ddz = w.g.position.z - S.pos.z;
+      if (ddx*ddx + ddz*ddz < 8100) w.mixer.update(dt);
+    }
+  }
+  for (const c of crowd){                               // foule animee (talking_man) : idem, proche seulement
+    if (c.userData.mixer && c.visible){
+      const ddx = c.position.x - S.pos.x, ddz = c.position.z - S.pos.z;
+      if (ddx*ddx + ddz*ddz < 8100) c.userData.mixer.update(dt);
+    }
   }
   for (const c of cars){
     c.t += c.sp * c.dir * dt * 60;
@@ -2797,11 +2648,11 @@ function updateLife(dt){
 
 /* ============================ MINIMAP ============================ */
 const mm = $('minimap'), mctx = mm.getContext('2d');
-const MMZ = 3;                                        // zoom : ~3x plus pres qu'avant
+const MMZ = 3;                                          // carte statique agrandie : la fenetre suit le joueur
 const mmsW = mm.width * MMZ, mmsH = mm.height * MMZ;
 const mmScale = Math.min(mmsW / (maxX-minX+150), mmsH / (maxZ-minZ+150));
 const mmOX = (mmsW - (maxX-minX)*mmScale)/2, mmOZ = (mmsH - (maxZ-minZ)*mmScale)/2;
-const m2c = (x, z) => [ (x-minX)*mmScale + mmOX, (z-minZ)*mmScale + mmOZ ];   // -> canvas statique
+const m2c = (x, z) => [ (x-minX)*mmScale + mmOX, (z-minZ)*mmScale + mmOZ ];
 const mmStatic = document.createElement('canvas');
 mmStatic.width = mmsW; mmStatic.height = mmsH;
 function drawStaticMap(){
@@ -2881,10 +2732,11 @@ function drawMinimap(t){
   mctx.save();
   mctx.translate(px, py);
   mctx.rotate(Math.PI - S.yaw);  // le triangle pointe vers l'avant du joueur
-  mctx.fillStyle = '#ecc94b';
+  mctx.fillStyle = '#f6c14d';
+  mctx.strokeStyle = 'rgba(20,16,8,.9)'; mctx.lineWidth = 1.5;
   mctx.beginPath();
   mctx.moveTo(0, -6); mctx.lineTo(4, 5); mctx.lineTo(-4, 5);
-  mctx.closePath(); mctx.fill();
+  mctx.closePath(); mctx.fill(); mctx.stroke();
   mctx.restore();
   // objectif : pulsation s'il est dans le champ, sinon fleche au bord de la carte
   const tg = objTarget();
@@ -2892,10 +2744,10 @@ function drawMinimap(t){
   const W = mm.width, H = mm.height;
   if (tx >= 8 && tx <= W-8 && ty >= 8 && ty <= H-8){
     const pulse = 3.4 + Math.sin(t/250)*1.4;
-    mctx.strokeStyle = '#4fd1c5';
+    mctx.strokeStyle = '#0d9488';
     mctx.lineWidth = 2;
     mctx.beginPath(); mctx.arc(tx, ty, pulse, 0, 7); mctx.stroke();
-    mctx.fillStyle = '#4fd1c5';
+    mctx.fillStyle = '#0d9488';
     mctx.beginPath(); mctx.arc(tx, ty, 2, 0, 7); mctx.fill();
   } else {
     const ang = Math.atan2(ty - H/2, tx - W/2);
@@ -2904,7 +2756,7 @@ function drawMinimap(t){
     mctx.save();
     mctx.translate(ex, ey);
     mctx.rotate(ang);
-    mctx.fillStyle = '#4fd1c5';
+    mctx.fillStyle = '#0d9488';
     mctx.beginPath(); mctx.moveTo(8, 0); mctx.lineTo(-5, 5.5); mctx.lineTo(-5, -5.5);
     mctx.closePath(); mctx.fill();
     mctx.restore();
@@ -3054,6 +2906,56 @@ function stopMic(){
 $('micBtn').onclick = () => (wantListen ? stopMic() : startMic());
 setMicUI(false, SR ? 'Prêt — Chrome/Edge recommandé' : 'Non supporté (Chrome/Edge)');
 
+/* ============================ TACTILE ============================ */
+S.joyX = 0; S.joyY = 0;
+if (IS_TOUCH){
+  const joy = $('joy'), knob = $('joyKnob'), JR = 50;
+  let joyPid = null;
+  const joyMove = e => {
+    const r = joy.getBoundingClientRect();
+    let dx = e.clientX - (r.left + r.width/2), dy = e.clientY - (r.top + r.height/2);
+    const d = Math.hypot(dx, dy);
+    if (d > JR){ dx *= JR/d; dy *= JR/d; }
+    S.joyX = dx / JR; S.joyY = dy / JR;
+    knob.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
+  };
+  const joyEnd = e => {
+    if (e.pointerId !== joyPid) return;
+    joyPid = null; S.joyX = 0; S.joyY = 0; knob.style.transform = '';
+  };
+  joy.addEventListener('pointerdown', e => {
+    joyPid = e.pointerId;
+    try { joy.setPointerCapture(e.pointerId); } catch(_){}
+    joyMove(e); e.preventDefault();
+  });
+  joy.addEventListener('pointermove', e => { if (e.pointerId === joyPid) joyMove(e); });
+  joy.addEventListener('pointerup', joyEnd);
+  joy.addEventListener('pointercancel', joyEnd);
+  joy.addEventListener('contextmenu', e => e.preventDefault());
+
+  $('actRun').onclick  = () => { S.vWalk = true;  S.vRun = true;  };
+  $('actWalk').onclick = () => { S.vWalk = true;  S.vRun = false; };
+  $('actStop').onclick = () => { S.vWalk = false; S.vRun = false; S.speed = 0; };
+  $('pauseFab').onclick = () => { if (S.state === 'playing' || S.state === 'paused') togglePause(); };
+  $('micFab').onclick = () => (wantListen ? stopMic() : startMic());
+  if (document.fullscreenEnabled){
+    $('fsFab').onclick = async () => {
+      try {
+        if (document.fullscreenElement) await document.exitFullscreen();
+        else { await document.documentElement.requestFullscreen(); try { await screen.orientation.lock('landscape'); } catch(_){} }
+      } catch(_){}
+    };
+  } else { $('fsFab').style.display = 'none'; }
+  $('playKeys').textContent = '▶ Jouer (tactile)';
+}
+function touchTick(){
+  if (!IS_TOUCH) return;
+  $('touch').classList.toggle('idle', S.state !== 'playing');
+  $('actRun').classList.toggle('on', !!(S.vWalk && S.vRun));
+  $('actWalk').classList.toggle('on', !!(S.vWalk && !S.vRun));
+  $('micFab').classList.toggle('on', !!wantListen);
+}
+
 /* ============================ QUALITE : APPLICATION ============================ */
 function applyQuality(){
   const Q = QUALITY[tier];
@@ -3127,6 +3029,268 @@ function perfTick(rawDt, now){
 }
 applyQuality();
 
+async function loadModelLibrary(){
+  let man;
+  try {
+    const r = await fetch('models/models.json', { cache: 'no-cache' });
+    if (!r.ok) return;
+    man = await r.json();
+  } catch(_){ return; }
+  try {
+    const [{ GLTFLoader }, SkeletonUtils, { MeshoptDecoder }, { DRACOLoader }] = await Promise.all([
+      import('three/addons/loaders/GLTFLoader.js'),
+      import('three/addons/utils/SkeletonUtils.js'),
+      import('three/addons/libs/meshopt_decoder.module.js'),
+      import('three/addons/loaders/DRACOLoader.js'),
+    ]);
+    const draco = new DRACOLoader().setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
+    const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).setDRACOLoader(draco);
+    const load = f => loader.loadAsync('models/' + f);
+
+    async function build(entry, defH){
+      if (!entry || !entry.file) return null;
+      try {
+        const gltf = await load(entry.file);
+        const clips = {};
+        classifyClips(gltf.animations, clips);
+        if (entry.anims) for (const [k, f] of Object.entries(entry.anims)){
+          try { const a = await load(f); if (a.animations[0]) clips[k] = a.animations[0]; } catch(e){ console.warn('animation introuvable', f); }
+        }
+        const root = gltf.scene;
+        root.updateMatrixWorld(true);
+        const size = new THREE.Box3().setFromObject(root).getSize(new THREE.Vector3());
+        root.scale.setScalar(size.y > 0 ? (entry.height || defH) / size.y : 1);       // taille reelle (~1,75 m)
+        root.updateMatrixWorld(true);
+        const b = new THREE.Box3().setFromObject(root);
+        root.position.set(-(b.min.x + b.max.x)/2, -b.min.y, -(b.min.z + b.max.z)/2);  // pieds au sol, centre
+        const wrap = new THREE.Group();
+        wrap.add(root);
+        wrap.rotation.y = entry.rotY || 0;                                             // si le modele regarde ailleurs que +Z
+        root.traverse(o => {
+          if (!o.isMesh) return;
+          o.castShadow = true;
+          if (o.isSkinnedMesh) o.frustumCulled = false;
+          const m = o.material;
+          if (m && !Array.isArray(m) && m.isMeshStandardMaterial && !m.userData.lambert){
+            const lam = new THREE.MeshLambertMaterial({ color: m.color, map: m.map, side: m.side,
+              transparent: m.transparent, opacity: m.opacity, alphaTest: m.alphaTest });
+            m.userData.lambert = lam;                                                  // palier Bas/Moyen = materiau leger
+            stdCache.set(lam, m);
+          }
+        });
+        return { wrap, clips };
+      } catch(e){ console.warn('Modele .glb ignore :', entry.file, e); return null; }
+    }
+    MODELS.instantiate = proto => {
+      const group = SkeletonUtils.clone(proto.wrap);
+      const mixer = new THREE.AnimationMixer(group);
+      const actions = {};
+      for (const [k, c] of Object.entries(proto.clips)) actions[k] = mixer.clipAction(c);
+      return { group, mixer, actions };
+    };
+    const pProtos = await Promise.all((man.players || []).map(e => build(e, 1.75)));
+    const wProtos = (await Promise.all((man.walkers || []).map(e => build(e, 1.7)))).filter(Boolean);
+    MODELS.players = pProtos;
+    MODELS.walkers = wProtos;
+    if (!pProtos.some(Boolean) && !wProtos.length) return;
+
+    // remplacer les cubes deja en place
+    if (wProtos.length) for (const w of walkers){
+      scene.remove(w.g);
+      const ped = makePedestrian();
+      w.g = ped.g; w.mixer = ped.mixer;
+      w.g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+      scene.add(w.g);
+    }
+    if (wProtos.length) crowd.forEach((old, i) => {
+      if (old.userData.talk) return;         // la foule parlante (talking_man) reste en place
+      scene.remove(old);
+      const ped = makePedestrian(); freezePose(ped);
+      ped.g.position.copy(old.position); ped.g.rotation.y = old.rotation.y;
+      ped.g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+      scene.add(ped.g); crowd[i] = ped.g;
+    });
+    applyCharacter(charIdx);
+    buildCharRow();                        // les cartes gagnent leur badge "3D"
+    applyQuality();
+  } catch(e){ console.warn('Chargement des modeles .glb impossible, on garde les cubes :', e); }
+}
+loadModelLibrary();
+
+/* ============================ VEHICULES + FOULE GLB (telecharges) ============================ */
+(async () => {
+  try {
+    const [{ GLTFLoader }, { MeshoptDecoder }, { DRACOLoader }, SkeletonUtils] = await Promise.all([
+      import('three/addons/loaders/GLTFLoader.js'),
+      import('three/addons/libs/meshopt_decoder.module.js'),
+      import('three/addons/loaders/DRACOLoader.js'),
+      import('three/addons/utils/SkeletonUtils.js'),
+    ]);
+    const draco = new DRACOLoader().setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
+    const gltfLoader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).setDRACOLoader(draco);
+
+    // echelle reelle, sol a y=0, centre x/z ; byHeight = on cale sur la hauteur (personnage),
+    // sinon sur la longueur (vehicule) avec auto-couchage si le modele est vertical.
+    function fitModel(obj, target, byHeight){
+      obj.updateMatrixWorld(true);
+      let box = new THREE.Box3().setFromObject(obj);
+      let size = box.getSize(new THREE.Vector3());
+      if (!isFinite(size.x) || size.lengthSq() < 1e-6) return null;
+      if (!byHeight && size.y > target*0.75 && size.y > size.x && size.y > size.z){
+        obj.rotation.x = -Math.PI/2;            // il etait vertical : on le couche
+        obj.updateMatrixWorld(true);
+        box = new THREE.Box3().setFromObject(obj);
+        size = box.getSize(new THREE.Vector3());
+      }
+      const span = byHeight ? size.y : Math.max(size.x, size.z);
+      const s = target / (span || 1);
+      const c = box.getCenter(new THREE.Vector3());
+      obj.scale.setScalar(s);
+      obj.position.set(-c.x*s, -box.min.y*s, -c.z*s);
+      const g = new THREE.Group();
+      g.add(obj);
+      return g;
+    }
+    function prepGLB(g){
+      g.traverse(o => {
+        if (!o.isMesh) return;
+        o.castShadow = true;
+        const m = o.material;
+        if (m && m.isMeshStandardMaterial && QUALITY[tier].std){
+          m.envMap = getEnvTex(); m.envMapIntensity = 0.45; m.needsUpdate = true;
+        }
+        if (m && m.map) m.map.anisotropy = 4;
+      });
+      return g;
+    }
+
+    function addGlbTraffic(url, targetLen, n, roadIdx, removeFlag){
+      gltfLoader.load(url, gltf => {
+        for (let i = 0; i < n; i++){
+          const g = fitModel(gltf.scene.clone(true), targetLen, false);
+          if (!g) return;
+          prepGLB(g);
+          const r = bigRoads[(roadIdx + i*2) % bigRoads.length];
+          scene.add(g);
+          cars.push({ g, pts: r.pts, t: Math.random(), dir: Math.random()<.5?1:-1,
+                      sp: 0.000045 + Math.random()*0.00004 });
+        }
+        let removed = 0;                       // on retire les vehicules provisoires
+        for (let i = cars.length-1; i >= 0 && removed < n; i--){
+          if (cars[i].g.userData[removeFlag]){
+            scene.remove(cars[i].g);
+            cars.splice(i, 1);
+            removed++;
+          }
+        }
+        console.log('GLB OK :', url);
+      }, undefined, e => console.log('GLB rate :', url, e));
+    }
+    addGlbTraffic('models/mercedes.glb',    4.6, 2, 0, 'boxCar');
+    addGlbTraffic('models/fairheaven.glb',  4.5, 2, 3, 'boxCar');
+    addGlbTraffic('models/fiat_punto.glb',  4.0, 3, 5, 'boxCar');
+    addGlbTraffic('models/luaz.glb',        3.9, 2, 7, 'minibus');
+
+    /* morceaux de voie telecharges : poses sur la vraie ligne pres de la gare */
+    gltfLoader.load('models/rail_piece.glb', gltf => {
+      const piece = fitModel(gltf.scene, 6.0, false);          // 6 m de long, pose a plat
+      if (!piece) return;
+      prepGLB(piece);
+      const stList = D.stations || [];
+      const gs = stList.find(s => /gare/i.test(s.name || '')) || stList[0];
+      if (!gs || !D.rails || !D.rails.length) return;
+      let best = null, bd = 1e9, bi = 0;
+      for (const rl of D.rails){
+        for (let i = 0; i < rl.pts.length; i++){
+          const d = Math.hypot(rl.pts[i][0]-gs.x, rl.pts[i][1]-gs.z);
+          if (d < bd){ bd = d; best = rl; bi = i; }
+        }
+      }
+      if (!best) return;
+      const pts = best.pts;
+      const cum = [0];
+      for (let i = 1; i < pts.length; i++)
+        cum.push(cum[i-1] + Math.hypot(pts[i][0]-pts[i-1][0], pts[i][1]-pts[i-1][1]));
+      const at = s => {                           // position + angle a distance s du depart
+        let i = 1;
+        while (i < cum.length-1 && cum[i] < s) i++;
+        const t = (s - cum[i-1]) / Math.max(0.001, cum[i]-cum[i-1]);
+        const a = pts[i-1], b = pts[i];
+        return { x: a[0]+(b[0]-a[0])*t, z: a[1]+(b[1]-a[1])*t,
+                 ang: Math.atan2(b[0]-a[0], b[1]-a[1]) };
+      };
+      for (let k = -10; k <= 10; k++){           // 21 pieces x 6 m = 126 m autour de la gare
+        const s = cum[bi] + k*6;
+        if (s < 0 || s > cum[cum.length-1]) continue;
+        const p = at(s);
+        const g = piece.clone(true);
+        g.position.set(p.x, 0, p.z);
+        g.rotation.y = p.ang;
+        scene.add(g);
+      }
+      console.log('GLB OK : rail_piece (126 m pres de la gare)');
+    }, undefined, e => console.log('GLB rate : rail_piece', e));
+
+    /* talking_man : TOUTE la foule du marche devient vivante (il parle sur place) */
+    gltfLoader.load('models/talking_man.glb', gltf => {
+      const root = gltf.scene;
+      root.updateMatrixWorld(true);
+      const size = new THREE.Box3().setFromObject(root).getSize(new THREE.Vector3());
+      root.scale.setScalar(size.y > 0 ? 1.75 / size.y : 1);
+      root.updateMatrixWorld(true);
+      const bb = new THREE.Box3().setFromObject(root);
+      root.position.set(-(bb.min.x + bb.max.x)/2, -bb.min.y, -(bb.min.z + bb.max.z)/2);
+      const wrap = new THREE.Group();
+      wrap.add(root);
+      const clip = gltf.animations[0] || null;
+      crowdTpl = { wrap, clips: clip ? { talk: clip } : {} };
+      const swap = () => {
+        if (!MODELS.instantiate) return;       // instantiate pas encore pret : crowdTpl sera pris par ensureCrowd
+        for (let i = 0; i < crowd.length; i++){
+          const old = crowd[i];
+          if (old.userData.talk) continue;     // deja un talking_man
+          const inst = MODELS.instantiate(crowdTpl);
+          const g = inst.group;
+          const act = inst.actions.talk;
+          if (act){
+            act.time = Math.random() * (act.getClip().duration || 1);
+            act.play();
+            g.userData.mixer = inst.mixer;
+          }
+          g.userData.talk = true;
+          g.position.copy(old.position);
+          g.rotation.y = old.rotation.y;
+          g.visible = old.visible;
+          g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+          scene.add(g);
+          scene.remove(old);
+          crowd[i] = g;
+        }
+      };
+      swap();
+      console.log('GLB OK : talking_man (foule du marche animee)');
+    }, undefined, e => console.log('GLB rate : talking_man', e));
+  } catch(e){ console.warn('Vehicules GLB indisponibles, on garde les boites :', e); }
+})();
+
+/* parametres de test : ?auto=1 (demarre), ?at=x,z[,yaw] (teleporte), ?char=N (personnage) */
+{
+  const qs = new URLSearchParams(location.search);
+  if (qs.has('auto')) setTimeout(() => startGame(), 600);
+  const at = qs.get('at');
+  if (at){
+    const pp = at.split(',').map(Number);
+    const ax = pp[0], az = pp[1], ayaw = pp.length > 2 ? pp[2] : null;
+    if (isFinite(ax) && isFinite(az)){
+      const put = () => { S.pos.x = ax; S.pos.z = az; if (ayaw !== null && isFinite(ayaw)) S.yaw = ayaw; };
+      put();
+      setTimeout(put, 700);
+    }
+  }
+  const ch = qs.get('char');
+  if (ch !== null && isFinite(+ch)) setTimeout(() => applyCharacter(+ch), 650);
+}
+
 /* ============================ BOUCLE ============================ */
 const clock = new THREE.Clock();
 function animate(){
@@ -3135,6 +3299,7 @@ function animate(){
   const dt = Math.min(rawDt, 0.05);
   const t = performance.now();
   perfTick(rawDt, t);
+  touchTick();
 
   updatePlayer(dt);
   if (S.state === 'menu'){
@@ -3148,7 +3313,6 @@ function animate(){
   updateObjective(dt);
   updateAmbiance(dt);
   updateLife(dt);
-  for (const mx of mixers) mx.update(dt);   // modeles 3D animes (PNJ + joueur)
   if (S.state !== 'menu') { drawMinimap(t); updateHud(); }
 
   marker.visible = S.state === 'playing' || S.state === 'dialog';
@@ -3161,22 +3325,6 @@ resetGame();
 camera.position.set(S.pos.x, 4.6, S.pos.z - 8.5);
 $('objTitle').textContent = '—';
 showOverlay($('menu'));
-if (new URLSearchParams(location.search).has('auto')) setTimeout(() => startGame(), 600);  // test auto (?auto=1)
-{   // test : ?at=x,z[,yaw] teleporte le joueur, ?char=N choisit le personnage (debug)
-  const qs = new URLSearchParams(location.search);
-  const at = qs.get('at');
-  if (at){
-    const pp = at.split(',').map(Number);
-    const ax = pp[0], az = pp[1], ayaw = pp.length > 2 ? pp[2] : null;
-    if (isFinite(ax) && isFinite(az)){
-      const put = () => { S.pos.x = ax; S.pos.z = az; if (ayaw !== null && isFinite(ayaw)) S.yaw = ayaw; };
-      put();
-      setTimeout(put, 700);   // re-applique apres startGame
-    }
-  }
-  const ch = qs.get('char');
-  if (ch !== null && isFinite(+ch)) setTimeout(() => applyCharacter(+ch), 650);
-}
 animate();
 </script>
 </body>
