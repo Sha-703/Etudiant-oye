@@ -121,6 +121,42 @@ for nid, (lon, lat, tags) in nodes.items():
         crossings.append({"x": round(x, 1), "z": round(z, 1)})
 print("passages a niveau:", len(crossings))
 
+# ---------- Batiments reels (empreintes OSM) : la vraie architecture ----------
+# On garde les polygones fermes pres de la ville (bbox des routes + 250 m)
+rx = [p[0] for r in roads for p in r["pts"]]
+rz = [p[1] for r in roads for p in r["pts"]]
+RX0, RX1 = min(rx) - 250, max(rx) + 250
+RZ0, RZ1 = min(rz) - 250, max(rz) + 250
+
+blds = []
+for wid, (refs, tags) in ways.items():
+    if "building" not in tags:
+        continue
+    pts = []
+    for r in refs:
+        if r in nodes:
+            lon, lat, _ = nodes[r]
+            x, z = xy(lon, lat)
+            pts.append((round(x, 1), round(z, 1)))
+    if len(pts) < 4:
+        continue
+    if pts[0] == pts[-1]:          # polygone ferme : on retire le point duplique
+        pts = pts[:-1]
+    if len(pts) < 3:
+        continue
+    xs = [p[0] for p in pts]
+    zs = [p[1] for p in pts]
+    cx, cz = sum(xs) / len(xs), sum(zs) / len(zs)
+    if not (RX0 < cx < RX1 and RZ0 < cz < RZ1):
+        continue
+    if max(xs) - min(xs) > 130 or max(zs) - min(zs) > 130:   # tres grands blocs : ignores
+        continue
+    flat = []
+    for p in pts:
+        flat.extend(p)
+    blds.append(flat)
+print("batiments reels:", len(blds))
+
 # ---------- Points d'interet ----------
 POI_CATS = {"marketplace": "marche", "place_of_worship": "culte", "school": "ecole",
             "hospital": "sante", "clinic": "sante", "pharmacy": "pharmacy",
@@ -254,7 +290,7 @@ for p in pois[:40]:
     print("   -", p["name"], "|", p["cat"])
 
 out = {"roads": roads, "pois": pois, "rails": rails, "stations": stations,
-       "crossings": crossings, "origin": [LON0, LAT0]}
+       "crossings": crossings, "blds": blds, "origin": [LON0, LAT0]}
 with open(os.path.join(HERE, "roads.js"), "w", encoding="utf-8") as f:
     f.write("window.WEWA_DATA = ")
     json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
