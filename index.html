@@ -196,7 +196,7 @@
 <body>
 
 <div id="hud" class="panel">
-  <h1>LUVAKA <span id="ver" style="font-size:10px; color:#7f92ad; font-weight:600; letter-spacing:.5px; vertical-align:middle">v1.7.0</span></h1>
+  <h1>LUVAKA <span id="ver" style="font-size:10px; color:#7f92ad; font-weight:600; letter-spacing:.5px; vertical-align:middle">v1.9.0</span></h1>
   <div class="day" id="clock">Jour 1 — 07:00 · Mbanza-Ngungu</div>
   <div class="stat"><span>📚 Moyenne</span><b id="notes">12,5 / 20</b></div>
   <div class="stat"><span>⚡ Énergie</span><span class="bar"><i id="energyBar" style="width:85%"></i></span></div>
@@ -634,16 +634,23 @@ let satInfo = null;                                  // { cv, px, pz, spanX, spa
       pMinZ = Math.min(pMinZ, p.z); pMaxZ = Math.max(pMaxZ, p.z);
     }
     if (!(pMaxX > pMinX)) return;
+    // la commune est desormais couverte partout : on borne le satellite au coeur
+    // (sinon la bbox explose et on depasse le budget de 64 tuiles)
+    if (pMaxX - pMinX > 6400){ const cx = (pMaxX + pMinX) / 2; pMinX = cx - 3200; pMaxX = cx + 3200; }
+    if (pMaxZ - pMinZ > 4100){ const cz = (pMaxZ + pMinZ) / 2; pMinZ = cz - 2050; pMaxZ = cz + 2050; }
     const margin = 500;
-    const lon0 = LON0 + (pMinX - margin) / MPD_LON, lon1 = LON0 + (pMaxX + margin) / MPD_LON;
-    const latSud = LAT0 - (pMaxZ + margin) / MPD_LAT, latNord = LAT0 - (pMinZ - margin) / MPD_LAT;
-    const Z = 16, pow = Math.pow(2, Z);
-    const lon2tx = lon => Math.floor((lon + 180) / 360 * pow);
-    const lat2ty = lat => Math.floor((1 - Math.log(Math.tan(lat*Math.PI/180) + 1/Math.cos(lat*Math.PI/180)) / Math.PI) / 2 * pow);
-    const tx0 = lon2tx(lon0), tx1 = lon2tx(lon1);
-    const ty0 = lat2ty(latNord), ty1 = lat2ty(latSud);      // ty0 = rangee nord
-    const nX = tx1 - tx0 + 1, nY = ty1 - ty0 + 1;
-    if (nX < 1 || nY < 1 || nX * nY > 64){ console.log('satellite ignore (' + nX + 'x' + nY + ' tuiles)'); return; }
+    // zoom adaptatif : on essaie z16 (pleine resolution), sinon z15, sinon z14
+    let Z = 16, pow, tx0, tx1, ty0, ty1, nX, nY;
+    for (Z = 16; Z >= 14; Z--){
+      pow = Math.pow(2, Z);
+      const lon2tx = lon => Math.floor((lon + 180) / 360 * pow);
+      const lat2ty = lat => Math.floor((1 - Math.log(Math.tan(lat*Math.PI/180) + 1/Math.cos(lat*Math.PI/180)) / Math.PI) / 2 * pow);
+      const nx0 = lon2tx(LON0 + (pMinX - margin) / MPD_LON), nx1 = lon2tx(LON0 + (pMaxX + margin) / MPD_LON);
+      const ny0 = lat2ty(LAT0 - (pMinZ - margin) / MPD_LAT), ny1 = lat2ty(LAT0 - (pMaxZ + margin) / MPD_LAT);
+      nX = nx1 - nx0 + 1; nY = ny1 - ny0 + 1;
+      if (nX >= 1 && nY >= 1 && nX * nY <= 64){ tx0 = nx0; tx1 = nx1; ty0 = ny0; ty1 = ny1; break; }
+    }
+    if (nX < 1 || nY < 1 || nX * nY > 64){ console.log('satellite ignore (budget tuiles)'); return; }
     const tile2lon = x => x / pow * 360 - 180;
     const tile2lat = y => Math.atan(Math.sinh(Math.PI * (1 - 2 * y / pow))) * 180 / Math.PI;
     const wLon0 = tile2lon(tx0), wLon1 = tile2lon(tx1 + 1);
@@ -690,7 +697,7 @@ let satInfo = null;                                  // { cv, px, pz, spanX, spa
       scene.add(sat);
       satInfo = { cv, px, pz, spanX, spanZ };
       if (typeof drawStaticMap === 'function') drawStaticMap();   // la minimap passe sur l'image reelle
-      console.log('satellite OK : ' + done + '/' + total + ' tuiles, ' + Math.round(spanX) + 'x' + Math.round(spanZ) + ' m');
+      console.log('satellite OK : z' + Z + ', ' + done + '/' + total + ' tuiles, ' + Math.round(spanX) + 'x' + Math.round(spanZ) + ' m');
     };
     for (let ix = 0; ix < nX; ix++){
       for (let iy = 0; iy < nY; iy++){

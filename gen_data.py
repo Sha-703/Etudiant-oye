@@ -4,7 +4,7 @@ import xml.etree.ElementTree as ET
 import json, math, os
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-FILES = ["mbanza.xml", "mbanza_b.xml", "mbanza_c.xml", "mbanza_d.xml", "mbanza_e.xml"]
+FILES = ["mbanza.xml", "mbanza_b.xml", "mbanza_c.xml", "mbanza_d.xml", "mbanza_e.xml", "mbanza_f.xml"]
 
 # Origine locale (metres) au centre de la zone de jeu
 LON0, LAT0 = 14.85, -5.2585
