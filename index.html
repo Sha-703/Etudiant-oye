@@ -196,7 +196,7 @@
 <body>
 
 <div id="hud" class="panel">
-  <h1>LUVAKA <span id="ver" style="font-size:10px; color:#7f92ad; font-weight:600; letter-spacing:.5px; vertical-align:middle">v1.4.0</span></h1>
+  <h1>LUVAKA <span id="ver" style="font-size:10px; color:#7f92ad; font-weight:600; letter-spacing:.5px; vertical-align:middle">v1.5.0</span></h1>
   <div class="day" id="clock">Jour 1 — 07:00 · Mbanza-Ngungu</div>
   <div class="stat"><span>📚 Moyenne</span><b id="notes">12,5 / 20</b></div>
   <div class="stat"><span>⚡ Énergie</span><span class="bar"><i id="energyBar" style="width:85%"></i></span></div>
@@ -1192,56 +1192,75 @@ function labelSprite(text, color){
 const poiByName = {};
 for (const p of D.pois) poiByName[p.name] = p;
 
+/* --- plus de boites fictives : les vrais batiments OSM sont dessines tels quels.
+        Chaque lieu cle a un panneau-portail (comme les vraies etablissements) + un libelle flottant --- */
 const KEY_POIS = ['ISP Mbanza-Ngungu', 'Université Kongo — Nouveau Campus', 'Marché central',
                   'Cyber Café MwegISA', 'Cantina du campus', "Résidence — chez l'oncle",
                   'Hôpital Nsona-Nkulu'];
+const GATE_NAMES = { 'ISP Mbanza-Ngungu': 'ISP', 'Université Kongo — Nouveau Campus': 'UNIVERSITÉ KONGO',
+                     'Marché central': 'MARCHÉ CENTRAL', 'Cyber Café MwegISA': 'CYBER CAFÉ',
+                     'Cantina du campus': 'CANTINA', "Résidence — chez l'oncle": 'RÉSIDENCE',
+                     'Hôpital Nsona-Nkulu': 'HÔPITAL NSONA-NKULU' };
 const poiLabels = [];
-const keyBld = {
-  'ISP Mbanza-Ngungu': { w: 46, d: 26, h: 12, c: '#dfe6ee' },
-  'Université Kongo — Nouveau Campus': { w: 60, d: 30, h: 14, c: '#e9e2cf' },
-  'Marché central': { w: 44, d: 34, h: 8, c: '#e0c9a6' },
-  'Cyber Café MwegISA': { w: 16, d: 12, h: 6, c: '#cfd8d3' },
-  'Cantina du campus': { w: 18, d: 14, h: 6, c: '#e6b8a2' },
-  "Résidence — chez l'oncle": { w: 20, d: 14, h: 7, c: '#d9c2b0' },
-  'Hôpital Nsona-Nkulu': { w: 36, d: 20, h: 9, c: '#e8e2d4' },
-};
-const keyA = makeArrays(), keyRoofA = makeArrays(), keySignA = makeArrays();
-const SIGN_FOR = { 'Marché central':0, 'ISP Mbanza-Ngungu':1,
-                   'Université Kongo — Nouveau Campus':2, 'Cyber Café MwegISA':3,
-                   'Hôpital Nsona-Nkulu':61 };
-let keyN = 0;
+
+function makeGateTexture(text){
+  const cv = document.createElement('canvas'); cv.width = 512; cv.height = 132;
+  const c = cv.getContext('2d');
+  c.fillStyle = '#123f28'; c.fillRect(0, 0, 512, 132);           // vert institutionnel
+  c.strokeStyle = '#e8c964'; c.lineWidth = 8; c.strokeRect(9, 9, 494, 114);
+  c.fillStyle = '#f4f7ef'; c.textAlign = 'center'; c.textBaseline = 'middle';
+  let size = 54;
+  c.font = 'bold ' + size + 'px "Segoe UI", sans-serif';
+  while (c.measureText(text).width > 440 && size > 20){ size -= 2; c.font = 'bold ' + size + 'px "Segoe UI", sans-serif'; }
+  c.fillText(text, 256, 70);
+  const t = new THREE.CanvasTexture(cv);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+// normale du portail = vers la route la plus proche (il fait face a l'avenue)
+function nearestRoadDir(x, z){
+  let bd = 1e9, bx = 1, bz = 0;
+  for (const r of D.roads){
+    const pts = r.pts;
+    for (let i = 0; i < pts.length - 1; i++){
+      const a = pts[i], b = pts[i + 1];
+      const dx = b[0] - a[0], dz = b[1] - a[1];
+      const L2 = dx * dx + dz * dz || 1;
+      let t = ((x - a[0]) * dx + (z - a[1]) * dz) / L2;
+      t = t < 0 ? 0 : (t > 1 ? 1 : t);
+      const qx = a[0] + dx * t - x, qz = a[1] + dz * t - z;
+      const d = qx * qx + qz * qz;
+      if (d < bd){ bd = d; bx = qx; bz = qz; }
+    }
+  }
+  const L = Math.hypot(bx, bz) || 1;
+  return [bx / L, bz / L];
+}
+const gateA = makeArrays();
+const gateMats = {};
 for (const name of KEY_POIS){
   const p = poiByName[name];
   if (!p) continue;
-  const spec = keyBld[name];
-  addBox(keyA, p.x, p.z, spec.w, spec.d, spec.h, spec.c);
-  const rc = ROOFS[keyN++ % ROOFS.length];
-  if (spec.h <= 8){
-    addRoof(keyRoofA, p.x, p.z, spec.w, spec.d, spec.h, rc, null, null, { over: 2.8 });
-  } else {
-    addBox(keyRoofA, p.x - spec.w*0.3, p.z, 1.8, 1.8, 1.4, 0x2e4a6e, null, null, spec.h);
-    addBox(keyRoofA, p.x + spec.w*0.3, p.z + spec.d*0.2, 1.8, 1.8, 1.4, 0x2e4a6e, null, null, spec.h);
+  const [fx, fz] = nearestRoadDir(p.x, p.z);      // direction vers la route (normale du portail)
+  const ux = -fz, uz = fx;                        // axe du portail (perpendiculaire)
+  addBox(gateA, p.x - ux*2.8, p.z - uz*2.8, 0.45, 0.45, 3.8, 0x1d4a2e);
+  addBox(gateA, p.x + ux*2.8, p.z + uz*2.8, 0.45, 0.45, 3.8, 0x1d4a2e);
+  addBox(gateA, p.x, p.z, 6.4, 0.45, 1.6, 0x14402a, [ux, uz], [fx, fz], 2.0);
+  if (!gateMats[name]) gateMats[name] = makeGateTexture(GATE_NAMES[name] || name.toUpperCase());
+  const board = new THREE.PlaneGeometry(5.9, 1.45);
+  for (const s of [1, -1]){
+    const sp = new THREE.Mesh(board, new THREE.MeshBasicMaterial({ map: gateMats[name] }));
+    sp.position.set(p.x + fx * s * 0.24, 2.8, p.z + fz * s * 0.24);
+    sp.rotation.y = Math.atan2(fx * s, fz * s);
+    scene.add(sp);
   }
-  if (name in SIGN_FOR){
-    addSign(keySignA, p.x, p.z, spec.w*0.72, 2.0, 2.6, [1,0], [0,1],
-            spec.d/2 + 0.12, SIGN_FOR[name], SIGN_COLS, SIGN_ROWS);
-  }
-  bldRects.push({ x: p.x, z: p.z, w: spec.w, d: spec.d });
   const lb = labelSprite(name.replace(' — Nouveau Campus', ' (UK)').replace("Résidence — chez l'oncle", "Ta résidence"), '#4fd1c5');
-  lb.position.set(p.x, spec.h + 9, p.z);
+  lb.position.set(p.x, 7.6, p.z);
   scene.add(lb);
   poiLabels.push(lb);
 }
-const keyMesh = new THREE.Mesh(geomFrom(keyA.pos, keyA.uv, keyA.col, keyA.idx),
-  new THREE.MeshLambertMaterial({ map: windowTexture(), vertexColors: true }));
-keyMesh.castShadow = true; keyMesh.receiveShadow = true;
-scene.add(keyMesh);
-const keyRoofMesh = new THREE.Mesh(geomFrom(keyRoofA.pos, keyRoofA.uv, keyRoofA.col, keyRoofA.idx),
-  new THREE.MeshLambertMaterial({ vertexColors: true }));
-keyRoofMesh.castShadow = true;
-scene.add(keyRoofMesh);
-scene.add(new THREE.Mesh(geomFrom(keySignA.pos, keySignA.uv, null, keySignA.idx),
-  new THREE.MeshBasicMaterial({ map: signAtlas, side: THREE.DoubleSide })));
+scene.add(new THREE.Mesh(geomFrom(gateA.pos, gateA.uv, gateA.col, gateA.idx),
+  new THREE.MeshLambertMaterial({ vertexColors: true })));
 
 /* ============ RELIEF + LIEUX REELS DE MBANZA-NGUNGU ============ */
 
@@ -2219,9 +2238,11 @@ function objTarget(){
   const p = poiByName[obj().poi];
   return p ? new THREE.Vector3(p.x, 0, p.z) : new THREE.Vector3(0,0,0);
 }
+const OBJ_RADIUS = { 'Université Kongo — Nouveau Campus': 40, 'ISP Mbanza-Ngungu': 32,
+                     'Marché central': 28, 'Hôpital Nsona-Nkulu': 20, 'Cantina du campus': 10,
+                     'Résidence — chez l\'oncle': 10, 'Cyber Café MwegISA': 8 };
 function objRadius(){
-  const spec = keyBld[obj().poi];
-  return spec ? Math.max(spec.w, spec.d)/2 + 6 : 16;
+  return OBJ_RADIUS[obj().poi] || 16;         // rayon d'arrivée par défaut
 }
 function applyObjectiveUI(){
   if (S.objIdx >= day.length){ endDay(); return; }
@@ -2778,12 +2799,42 @@ function drawStaticMap(){
   }
   const colors = { marche:'#ecc94b', universite:'#4fd1c5', ecole:'#a0aec0', culte:'#b795f0',
                    sante:'#fc8181', cyber:'#4fd1c5', cantina:'#f6ad55', maison:'#68d391', pharmacy:'#f687b3' };
+  const mapStar = (x, y, r) => {
+    c.fillStyle = '#ffffff';
+    c.strokeStyle = 'rgba(15,20,30,.85)'; c.lineWidth = 1.3;
+    c.beginPath();
+    for (let i = 0; i < 10; i++){
+      const a = -Math.PI/2 + i * Math.PI/5;
+      const rr = i % 2 ? r*0.45 : r;
+      const sx = x + Math.cos(a)*rr, sy = y + Math.sin(a)*rr;
+      i ? c.lineTo(sx, sy) : c.moveTo(sx, sy);
+    }
+    c.closePath(); c.fill(); c.stroke();
+  };
   for (const p of D.pois){
     const [a,b] = m2c(p.x, p.z);
-    c.fillStyle = colors[p.cat] || '#718096';
-    c.strokeStyle = 'rgba(20,20,20,.7)';
-    c.lineWidth = 1;
-    c.beginPath(); c.arc(a, b, 3, 0, 7); c.fill(); c.stroke();
+    if (p.cat === 'universite'){
+      mapStar(a, b, 5.2);                                // les lieux d'etudes ressortent : etoile blanche
+    } else {
+      c.fillStyle = colors[p.cat] || '#718096';
+      c.strokeStyle = 'rgba(20,20,20,.7)';
+      c.lineWidth = 1;
+      c.beginPath(); c.arc(a, b, 3, 0, 7); c.fill(); c.stroke();
+    }
+  }
+  /* noms des lieux-cles sur la carte, comme une vraie carte */
+  const MAP_TAG = { 'ISP Mbanza-Ngungu': 'ISP', 'Université Kongo': 'UK', 'Université Kongo — Nouveau Campus': 'UK',
+                    'BATIMENT ADMINISTRATIF DE L\'UNIVERSITE KONGO': 'UK — ADM', 'Marché central': 'MARCHÉ',
+                    'Gare centrale': 'GARE', 'Stade de Mbanza-Ngungu': 'STADE', 'Musée': 'MUSÉE' };
+  c.font = 'bold 12px "Segoe UI", sans-serif';
+  c.textBaseline = 'middle';
+  for (const p of D.pois){
+    const tag = MAP_TAG[p.name]; if (!tag) continue;
+    const [a,b] = m2c(p.x, p.z);
+    c.lineWidth = 3.2; c.strokeStyle = 'rgba(10,14,20,.85)';
+    c.strokeText(tag, a + 7, b - 7);
+    c.fillStyle = '#ffe9a3';
+    c.fillText(tag, a + 7, b - 7);
   }
 }
 drawStaticMap();
