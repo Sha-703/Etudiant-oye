@@ -31,9 +31,9 @@
   #objcard .meta{ font-size:11px; margin-top:4px; color:var(--accent); display:flex; gap:12px; justify-content:center; }
   #arrow{ font-size:16px; line-height:1; margin-top:2px; display:inline-block; transition:transform .15s linear; color:var(--gold); }
 
-  #minimapWrap{ top:10px; right:10px; padding:6px; }
-  #minimap{ display:block; border-radius:8px; background:#0b1220; width:160px; height:160px; }
-  #minimapWrap .credit{ font-size:7.5px; color:#5d6b80; text-align:center; margin-top:4px; }
+  #minimapWrap{ top:10px; right:10px; padding:0; background:transparent; border:none; backdrop-filter:none; }
+  #minimap{ display:block; border-radius:50%; background:#1a2433; width:160px; height:160px;
+            box-shadow:0 0 0 2px rgba(255,255,255,.22), 0 6px 18px rgba(0,0,0,.5); }
 
   #voice{ bottom:10px; left:10px; width:240px; max-width:calc(100vw - 20px); }
   #voice h2{ font-size:10.5px; text-transform:uppercase; letter-spacing:1.5px; color:var(--accent); margin-bottom:4px; }
@@ -121,9 +121,8 @@
   body.touch #objcard h2{ font-size:14px; }
   body.touch #objcard .hint{ font-size:11px; }
   body.touch #objcard .meta{ font-size:11px; gap:10px; }
-  body.touch #minimapWrap{ padding:5px; }
+  body.touch #minimapWrap{ padding:0; }
   body.touch #minimap{ width:112px; height:112px; }
-  body.touch #minimapWrap .credit{ font-size:7px; margin-top:3px; }
   @media (max-height:480px){
     #joy{ width:116px; height:116px; }
     #actions{ gap:7px; }
@@ -206,8 +205,8 @@
 </div>
 
 <div id="minimapWrap" class="panel">
+  <!-- Donnees cartographiques © contributeurs OpenStreetMap (ODbL) · Imagerie satellite © Esri, Maxar -->
   <canvas id="minimap" width="210" height="210"></canvas>
-  <div class="credit">Carte © contributeurs OpenStreetMap (ODbL) · Imagerie satellite © Esri, Maxar</div>
 </div>
 
 <div id="voice" class="panel">
@@ -2696,7 +2695,7 @@ function updateLife(dt){
 
 /* ============================ MINIMAP ============================ */
 const mm = $('minimap'), mctx = mm.getContext('2d');
-const MMZ = 3;                                          // carte statique agrandie : la fenetre suit le joueur
+const MMZ = 4.5;                                        // carte statique agrandie : vue proche, style GTA
 const mmsW = mm.width * MMZ, mmsH = mm.height * MMZ;
 const mmScale = Math.min(mmsW / (maxX-minX+150), mmsH / (maxZ-minZ+150));
 const mmOX = (mmsW - (maxX-minX)*mmScale)/2, mmOZ = (mmsH - (maxZ-minZ)*mmScale)/2;
@@ -2768,39 +2767,37 @@ function drawStaticMap(){
 }
 drawStaticMap();
 function drawMinimap(t){
-  // fenêtre centrée sur le joueur (la carte suit, fortement zoomée)
+  // carte ronde style GTA : elle tourne avec le joueur, sa fleche reste pointee vers le haut
+  const W = mm.width, H = mm.height, R = W/2 - 3;
   const [pxs, pys] = m2c(S.pos.x, S.pos.z);
-  let sx = Math.round(pxs - mm.width/2), sy = Math.round(pys - mm.height/2);
-  sx = Math.max(0, Math.min(mmsW - mm.width, sx));
-  sy = Math.max(0, Math.min(mmsH - mm.height, sy));
-  mctx.drawImage(mmStatic, sx, sy, mm.width, mm.height, 0, 0, mm.width, mm.height);
-  const scr = (x, z) => { const [a,b] = m2c(x,z); return [a-sx, b-sy]; };
-  // joueur
-  const [px, py] = scr(S.pos.x, S.pos.z);
+  const rot = S.yaw - Math.PI;                        // la direction du joueur reste vers le haut
+  mctx.clearRect(0, 0, W, H);
   mctx.save();
-  mctx.translate(px, py);
-  mctx.rotate(Math.PI - S.yaw);  // le triangle pointe vers l'avant du joueur
-  mctx.fillStyle = '#f6c14d';
-  mctx.strokeStyle = 'rgba(20,16,8,.9)'; mctx.lineWidth = 1.5;
-  mctx.beginPath();
-  mctx.moveTo(0, -6); mctx.lineTo(4, 5); mctx.lineTo(-4, 5);
-  mctx.closePath(); mctx.fill(); mctx.stroke();
+  mctx.beginPath(); mctx.arc(W/2, H/2, R, 0, 7); mctx.clip();     // cadre circulaire
+  mctx.fillStyle = '#1a2433';                         // hors carte : fonce, comme l'inexplore
+  mctx.fillRect(0, 0, W, H);
+  mctx.translate(W/2, H/2);
+  mctx.rotate(rot);
+  mctx.translate(-pxs, -pys);
+  mctx.drawImage(mmStatic, 0, 0);                     // routes et POI en continu autour du joueur
   mctx.restore();
-  // objectif : pulsation s'il est dans le champ, sinon fleche au bord de la carte
+  // objectif : projete dans l'espace tourne ; pulsation s'il est dans le cercle, fleche au bord sinon
   const tg = objTarget();
-  const [tx, ty] = scr(tg.x, tg.z);
-  const W = mm.width, H = mm.height;
-  if (tx >= 8 && tx <= W-8 && ty >= 8 && ty <= H-8){
+  const [txs, tys] = m2c(tg.x, tg.z);
+  const dx = txs - pxs, dy = tys - pys, cs = Math.cos(rot), sn = Math.sin(rot);
+  const rx = dx*cs - dy*sn, ry = dx*sn + dy*cs;
+  const dd = Math.hypot(rx, ry);
+  if (dd < R - 10){
     const pulse = 3.4 + Math.sin(t/250)*1.4;
     mctx.strokeStyle = '#0d9488';
     mctx.lineWidth = 2;
-    mctx.beginPath(); mctx.arc(tx, ty, pulse, 0, 7); mctx.stroke();
+    mctx.beginPath(); mctx.arc(W/2 + rx, H/2 + ry, pulse, 0, 7); mctx.stroke();
     mctx.fillStyle = '#0d9488';
-    mctx.beginPath(); mctx.arc(tx, ty, 2, 0, 7); mctx.fill();
+    mctx.beginPath(); mctx.arc(W/2 + rx, H/2 + ry, 2, 0, 7); mctx.fill();
   } else {
-    const ang = Math.atan2(ty - H/2, tx - W/2);
-    const ex = W/2 + Math.cos(ang) * (W/2 - 11);
-    const ey = H/2 + Math.sin(ang) * (H/2 - 11);
+    const k = (R - 11) / dd;
+    const ex = W/2 + rx*k, ey = H/2 + ry*k;
+    const ang = Math.atan2(ry, rx);
     mctx.save();
     mctx.translate(ex, ey);
     mctx.rotate(ang);
@@ -2809,6 +2806,15 @@ function drawMinimap(t){
     mctx.closePath(); mctx.fill();
     mctx.restore();
   }
+  // joueur : fleche dorée fixe au centre
+  mctx.save();
+  mctx.translate(W/2, H/2);
+  mctx.fillStyle = '#f6c14d';
+  mctx.strokeStyle = 'rgba(20,16,8,.9)'; mctx.lineWidth = 1.5;
+  mctx.beginPath();
+  mctx.moveTo(0, -7); mctx.lineTo(5, 6); mctx.lineTo(0, 3.5); mctx.lineTo(-5, 6);
+  mctx.closePath(); mctx.fill(); mctx.stroke();
+  mctx.restore();
 }
 
 /* ============================ ENTRÉES ============================ */
