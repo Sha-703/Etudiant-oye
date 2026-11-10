@@ -196,7 +196,7 @@
 <body>
 
 <div id="hud" class="panel">
-  <h1>LUVAKA <span id="ver" style="font-size:10px; color:#7f92ad; font-weight:600; letter-spacing:.5px; vertical-align:middle">v1.6.0</span></h1>
+  <h1>LUVAKA <span id="ver" style="font-size:10px; color:#7f92ad; font-weight:600; letter-spacing:.5px; vertical-align:middle">v1.7.0</span></h1>
   <div class="day" id="clock">Jour 1 — 07:00 · Mbanza-Ngungu</div>
   <div class="stat"><span>📚 Moyenne</span><b id="notes">12,5 / 20</b></div>
   <div class="stat"><span>⚡ Énergie</span><span class="bar"><i id="energyBar" style="width:85%"></i></span></div>
@@ -2222,9 +2222,10 @@ function resetGame(){
   S.money = 15000;
   S.ponct = 0;
   S.rain = false;
-  S.yaw = 0;
+  S.yaw = Math.PI;                                      // face au campus ISP (nord)
   S.speed = 0;
-  S.pos = new THREE.Vector3(poiByName["Résidence — chez l'oncle"].x, 0, poiByName["Résidence — chez l'oncle"].z + 15);
+  const ISP0 = poiByName["ISP Mbanza-Ngungu"];           // le personnage commence devant l'ISP (ROND-POINT)
+  S.pos = new THREE.Vector3(ISP0.x, 0, ISP0.z);
   S.pendingTurn = 0;
   S.keys = {};
   S.vWalk = false; S.vRun = false; S.vTurning = 0;
@@ -2679,6 +2680,7 @@ function updateAmbiance(dt){
     const d = Math.hypot(lb.position.x - S.pos.x, lb.position.z - S.pos.z);
     const isTarget = tgt && Math.abs(lb.position.x - tgt.x) < 1 && Math.abs(lb.position.z - tgt.z) < 1;
     lb.visible = isTarget || d < 420;
+    lb.material.opacity = isTarget ? 1 : Math.min(1, Math.max(0, (d - 25) / 35));   // invisibles de tres pres (pas de mur blanc)
   }
   rain.material.opacity = 0.35 + Math.sin(performance.now()/400)*0.1;
   if (roadMesh.material.isMeshStandardMaterial){          // asphalte plus brillant sous la pluie
