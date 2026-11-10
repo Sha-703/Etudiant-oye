@@ -1727,18 +1727,10 @@ function limb(mat, w, h){
 
 /* --- personnages selectionnables --- */
 const CHARS = [
-  { name:'Junior', gender:'m', skin:0x6b4530, shirt:0xf4f1e6, pants:0x2b3a57, bag:0x2f6f4f,
-    hair:'cap', capColor:0x2f6f4f, collar:true, hint:'Casquette du campus' },
-  { name:'Béné', gender:'m', skin:0x5d3d2a, shirt:0xe0a56b, pants:0x6b6f57, bag:0x8b5e3c,
-    hair:'braids', sleeves:true, hint:'Tresses & manches courtes' },
-  { name:'Grâce', gender:'f', skin:0x7a5138, shirt:0xf2c14e, skirt:true, skirtColor:0x2e5fa3,
-    bag:0x9b5de5, bagFront:true, hair:'wrap', hairColor:0xd96c8a, hint:'Pagno & foulard' },
-  { name:'Mwana', gender:'f', skin:0x5d3d2a, shirt:0x6ba3d6, pants:0x2f3d55, bag:0xd96c8a,
-    hair:'ponytail', collar:true, sleeves:true, hint:'Chemise & queue de cheval' },
   { name:'Kabeya', gender:'m', skin:0x6b4530, shirt:0xf4f1e6, pants:0x2b3a57, bag:0x2f6f4f,
-    hair:'short', collar:true, hint:'Le doyen du campus (3D)' },
+    hair:'short', collar:true, hint:'Le doyen du campus' },
   { name:'Kito', gender:'m', skin:0x5d3d2a, shirt:0x4a90d6, pants:0x2f3d55, bag:0x8b5e3c,
-    hair:'short', hint:'Décontracté du quartier (3D)' },
+    hair:'short', hint:'Décontracté du quartier' },
 ];
 let charIdx = 0;
 let torso = null, legL = null, legR = null, armL = null, armR = null;
