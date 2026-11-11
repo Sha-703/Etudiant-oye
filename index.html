@@ -55,11 +55,13 @@
   kbd{ background:#1c2433; border:1px solid #38445c; border-bottom-width:2px; border-radius:4px; padding:0 4px; font-size:9px; font-family:inherit; }
 
   #streetName{ position:absolute; left:50%; bottom:22px; text-align:center; pointer-events:none; z-index:10;
-               opacity:0; transform:translate(-50%, 8px); transition:opacity .5s, transform .5s; }
-  #streetName.show{ opacity:1; transform:translate(-50%, 0); }
+               opacity:0; transform:translate(-50%, 0); transition:none; }
+  #streetName.show{ opacity:1; }
   #streetTxt{ font-size:22px; font-weight:700; letter-spacing:1.5px; color:#fff; text-transform:uppercase;
               text-shadow:0 2px 8px rgba(0,0,0,.9), 0 0 3px rgba(0,0,0,.9); }
   #streetSub{ font-size:10.5px; letter-spacing:3px; color:var(--gold); text-transform:uppercase; margin-top:2px;
+              text-shadow:0 1px 5px rgba(0,0,0,.9); }
+  #streetPoi{ font-size:12.5px; letter-spacing:.5px; color:#9be0d7; text-transform:none; margin-top:3px;
               text-shadow:0 1px 5px rgba(0,0,0,.9); }
 
   #toast{ position:absolute; bottom:150px; left:50%; transform:translateX(-50%); max-width:70vw; background:rgba(8,12,20,.92); border:1px solid var(--accent); border-radius:12px; padding:8px 14px; font-size:13px; text-align:center; opacity:0; transition:opacity .3s; pointer-events:none; }
@@ -196,7 +198,7 @@
 <body>
 
 <div id="hud" class="panel">
-  <h1>LUVAKA <span id="ver" style="font-size:10px; color:#7f92ad; font-weight:600; letter-spacing:.5px; vertical-align:middle">v2.0.0</span></h1>
+  <h1>LUVAKA <span id="ver" style="font-size:10px; color:#7f92ad; font-weight:600; letter-spacing:.5px; vertical-align:middle">v2.1.0</span></h1>
   <div class="day" id="clock">Jour 1 — 07:00 · Mbanza-Ngungu</div>
   <div class="stat"><span>📚 Moyenne</span><b id="notes">12,5 / 20</b></div>
   <div class="stat"><span>⚡ Énergie</span><span class="bar"><i id="energyBar" style="width:85%"></i></span></div>
@@ -220,7 +222,7 @@
   <canvas id="minimap" width="210" height="210"></canvas>
 </div>
 
-<div id="streetName"><div id="streetTxt"></div><div id="streetSub">Mbanza-Ngungu</div></div>
+<div id="streetName"><div id="streetTxt"></div><div id="streetSub">Mbanza-Ngungu</div><div id="streetPoi"></div></div>
 
 <div id="voice" class="panel">
   <h2>Commande vocale</h2>
@@ -713,7 +715,7 @@ let satInfo = null;                                  // { cv, px, pz, spanX, spa
       tex.anisotropy = 8;
       const sat = new THREE.Mesh(
         new THREE.PlaneGeometry(spanX, spanZ),
-        new THREE.MeshLambertMaterial({ map: tex, transparent: true, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 })
+        new THREE.MeshLambertMaterial({ map: tex, transparent: true })
       );
       sat.rotation.x = -Math.PI / 2;
       sat.position.set(px, 0.006, pz);
@@ -850,16 +852,22 @@ for (const r of D.roads){
     }
   }
   if (r.type === 'trunk' || r.type === 'primary' || r.type === 'secondary'){
-    // ligne pointillee au centre
+    // double trait jaune pour la nationale & grands axes (comme la RN1) ; pointille simple pour le reste
+    const doubleLine = (r.type === 'trunk' || r.type === 'primary');
     const pts = r.pts; let dist = 0;
     for (let i = 0; i < pts.length-1; i++){
       const a = pts[i], b = pts[i+1];
       const L = Math.hypot(b[0]-a[0], b[1]-a[1]);
+      const nx = -(b[1]-a[1])/L, nz = (b[0]-a[0])/L;       // vecteur perpendiculaire
       for (let d = 4 + (dist % 12); d < L-2; d += 12){
         const t = d/L, t2 = Math.min((d+5)/L, 1);
-        const fake = [[a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t],
-                      [a[0]+(b[0]-a[0])*t2, a[1]+(b[1]-a[1])*t2]];
-        ribbon(fake, 0.35, 0.075, lineA, 6);
+        const xa = a[0]+(b[0]-a[0])*t, za = a[1]+(b[1]-a[1])*t, xb = a[0]+(b[0]-a[0])*t2, zb = a[1]+(b[1]-a[1])*t2;
+        if (doubleLine){
+          ribbon([[xa + nx*0.45, za + nz*0.45], [xb + nx*0.45, zb + nz*0.45]], 0.14, 0.075, lineA, 6);
+          ribbon([[xa - nx*0.45, za - nz*0.45], [xb - nx*0.45, zb - nz*0.45]], 0.14, 0.075, lineA, 6);
+        } else {
+          ribbon([[xa, za], [xb, zb]], 0.35, 0.075, lineA, 6);
+        }
       }
       dist += L;
     }
@@ -938,7 +946,7 @@ const walkMesh = new THREE.Mesh(geomFrom(walkA.pos, walkA.uv, null, walkA.idx),
 walkMesh.receiveShadow = true;
 scene.add(walkMesh);
 scene.add(new THREE.Mesh(geomFrom(lineA.pos, lineA.uv, null, lineA.idx),
-  new THREE.MeshBasicMaterial({ color: 0xe8e2c8, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 })));
+  new THREE.MeshBasicMaterial({ color: 0xf5d860, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 })));
 scene.add(new THREE.Mesh(geomFrom(holeA.pos, holeA.uv, holeA.col, holeA.idx),
   new THREE.MeshLambertMaterial({ vertexColors: true, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })));
 const poleMesh = new THREE.Mesh(geomFrom(poleA.pos, poleA.uv, poleA.col, poleA.idx),
@@ -2931,11 +2939,12 @@ function drawMinimap(t){
 /* --- nom de l'avenue ou l'on marche (style GTA) : popup discret en bas a droite --- */
 const namedStreets = [];
 const streetLabel = n => n.toUpperCase().replace(/^AV\.(?=\S)/, 'AV. ');
+const HIER = { trunk: 6, primary: 5, secondary: 4, tertiary: 3, residential: 2, unclassified: 1 };
 for (const r of D.roads){
   if (!r.name || r.type === 'path' || r.type === 'footway') continue;   // avenues : tout sauf sentiers
   let ax = 1e9, bx = -1e9, az = 1e9, bz = -1e9;
   for (const p of r.pts){ ax = Math.min(ax, p[0]); bx = Math.max(bx, p[0]); az = Math.min(az, p[1]); bz = Math.max(bz, p[1]); }
-  namedStreets.push({ name: streetLabel(r.name), pts: r.pts, hw: r.w/2 + 8, ax: ax-20, bx: bx+20, az: az-20, bz: bz+20 });
+  namedStreets.push({ name: streetLabel(r.name), pts: r.pts, hw: r.w/2 + 8, ax: ax-20, bx: bx+20, az: az-20, bz: bz+20, rank: HIER[r.type] || 0 });
 }
 function segDist(px, pz, s, i){
   const a = s.pts[i], b = s.pts[i+1];
@@ -2949,19 +2958,31 @@ let curStreet = null, streetAt = -1, streetHide = null;
 function streetTick(now){
   if (now - streetAt < 400) return;                // test 2-3 fois par seconde suffit
   streetAt = now;
-  let best = null, bd = 1e9;
+  // rue la plus proche (dont on est dessus) ; en cas d'egalite, la route la plus importante
+  let best = null, bd = 1e9, bestRank = -1;
   for (const s of namedStreets){
     if (S.pos.x < s.ax || S.pos.x > s.bx || S.pos.z < s.az || S.pos.z > s.bz) continue;
     for (let i = 0; i < s.pts.length-1; i++){
       const d = segDist(S.pos.x, S.pos.z, s, i);
-      if (d < bd){ bd = d; best = s; }
+      if (d > s.hw) continue;
+      if (d < bd - 3 || (d < bd + 3 && s.rank > bestRank)){ bd = d; best = s; bestRank = s.rank; }
     }
   }
-  const name = (best && bd < best.hw) ? best.name : null;
-  if (name !== curStreet){
-    curStreet = name;
-    if (name){
-      $('streetTxt').textContent = name;
+  // POI le plus proche (dans les 150m) : on le montre sous le nom de rue
+  let bp = null, bpd = 150;
+  for (const p of D.pois){
+    const d = Math.hypot(p.x - S.pos.x, p.z - S.pos.z);
+    if (d < bpd){ bpd = d; bp = p; }
+  }
+  const streetName = best ? best.name : null;
+  const key = streetName + '|' + (bp ? bp.name : '');
+  if (key !== curStreet){
+    curStreet = key;
+    if (best || bp){
+      $('streetTxt').textContent = streetName || (bp ? bp.name : '');
+      const sub = $('streetPoi');
+      if (bp && streetName) sub.textContent = 'à ' + Math.round(bpd) + ' m : ' + bp.name;
+      else sub.textContent = 'Mbanza-Ngungu';
       const el = $('streetName');
       el.classList.add('show');
       clearTimeout(streetHide);
