@@ -27,6 +27,12 @@ def parse(f):
         elif el.tag == "way":
             refs = [nd.get("ref") for nd in el.findall("nd")]
             tags = {t.get("k"): t.get("v") for t in el.findall("tag")}
+            # un meme way revient dans plusieurs fichiers (parfois sans tags, en simple membre de relation) :
+            # on ne laisse JAMAIS une copie vide ecraser la copie qui porte les tags (sinon la RN1 disparait)
+            old = ways.get(el.get("id"))
+            if old:
+                if not tags: tags = old[1]
+                if not refs: refs = old[0]
             ways[el.get("id")] = (refs, tags)
         elif el.tag == "relation":
             mrefs = [m.get("ref") for m in el.findall("member") if m.get("type") == "way"]

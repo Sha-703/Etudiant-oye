@@ -196,7 +196,7 @@
 <body>
 
 <div id="hud" class="panel">
-  <h1>LUVAKA <span id="ver" style="font-size:10px; color:#7f92ad; font-weight:600; letter-spacing:.5px; vertical-align:middle">v1.9.0</span></h1>
+  <h1>LUVAKA <span id="ver" style="font-size:10px; color:#7f92ad; font-weight:600; letter-spacing:.5px; vertical-align:middle">v2.0.0</span></h1>
   <div class="day" id="clock">Jour 1 — 07:00 · Mbanza-Ngungu</div>
   <div class="stat"><span>📚 Moyenne</span><b id="notes">12,5 / 20</b></div>
   <div class="stat"><span>⚡ Énergie</span><span class="bar"><i id="energyBar" style="width:85%"></i></span></div>
@@ -326,6 +326,30 @@
 import * as THREE from 'three';
 
 const D = window.WEWA_DATA;
+/* La RN1 sort de la commune (jusqu'a 25 km). On la coupe au bord de la zone cartographiee, sinon les limites
+   du monde, la minicarte, le sol et le placement de la vegetation s'etalent sur des dizaines de km. */
+(function clipNational(){
+  let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9;
+  for (const r of D.roads) if (r.type !== 'trunk' && r.type !== 'primary') for (const p of r.pts){
+    if (p[0] < x0) x0 = p[0]; if (p[0] > x1) x1 = p[0]; if (p[1] < z0) z0 = p[1]; if (p[1] > z1) z1 = p[1];
+  }
+  x0 -= 300; x1 += 300; z0 -= 300; z1 += 300;
+  const inside = p => p[0] >= x0 && p[0] <= x1 && p[1] >= z0 && p[1] <= z1;
+  const clip = (list, only) => {
+    const out = [];
+    for (const r of list){
+      if (only && !only(r)){ out.push(r); continue; }
+      let cur = [];
+      const flush = () => { if (cur.length > 1) out.push(Object.assign({}, r, { pts: cur })); cur = []; };
+      for (const p of r.pts){ if (inside(p)) cur.push(p); else flush(); }
+      flush();
+    }
+    return out;
+  };
+  D.roads = clip(D.roads, r => r.type === 'trunk' || r.type === 'primary');
+  if (D.rails) D.rails = clip(D.rails);
+  for (const r of D.roads) if (r.type === 'trunk' && !r.name) r.name = 'Route nationale 1';
+})();
 const $ = id => document.getElementById(id);
 
 /* ============================ SCENE ============================ */
@@ -715,6 +739,7 @@ let satInfo = null;                                  // { cv, px, pz, spanX, spa
 /* --- collines de l'escarpement du Kwilu (horizon, hors ville) --- */
 const CX = (minX+maxX)/2, CZ = (minZ+maxZ)/2;
 const HILL_COLS = [0x3f5b3a, 0x4a6842, 0x556b45, 0x3a5334, 0x4e6b3e];
+const hillRing = new THREE.Group();            // fond d'horizon : suit le joueur (sinon les collines tombent dans les quartiers)
 for (let i = 0; i < 26; i++){
   const ang = (i / 26) * Math.PI * 2 + Math.random() * 0.22;
   const dist = 2950 + Math.random() * 950;
@@ -724,9 +749,10 @@ for (let i = 0; i < 26; i++){
     new THREE.ConeGeometry(rad, h, 12),
     new THREE.MeshLambertMaterial({ color: HILL_COLS[i % HILL_COLS.length] })
   );
-  hill.position.set(CX + Math.cos(ang)*dist, h/2 - 10, CZ + Math.sin(ang)*dist);
-  scene.add(hill);
+  hill.position.set(Math.cos(ang)*dist, h/2 - 10, Math.sin(ang)*dist);
+  hillRing.add(hill);
 }
+scene.add(hillRing);
 
 /* --- nuages + soleil --- */
 function softTexture(inner, outer){
@@ -760,10 +786,10 @@ scene.add(sunSp);
 const roadA = makeArrays(), trackA = makeArrays(), rutA = makeArrays(), walkA = makeArrays(),
       lineA = makeArrays(), dirtA = makeArrays(), holeA = makeArrays(), poleA = makeArrays();
 const wireVerts = [];
-const MAJOR = new Set(['primary','secondary','tertiary','residential','unclassified','living_street','pedestrian']);
+const MAJOR = new Set(['trunk','primary','secondary','tertiary','residential','unclassified','living_street','pedestrian']);
 const PAVED = new Set(['primary','secondary','tertiary','motorway','trunk']);
-const STREET_TYPES = new Set(['primary','secondary','tertiary']);
-const HOLED = new Set(['primary','secondary','tertiary','residential']);
+const STREET_TYPES = new Set(['trunk','primary','secondary','tertiary']);
+const HOLED = new Set(['trunk','primary','secondary','tertiary','residential']);
 let plateCount = 0;
 const plateMats = {};
 
@@ -823,7 +849,7 @@ for (const r of D.roads){
       ribbon(r.pts, 1.1, yR + 0.012, rutA, 6, -1.7);
     }
   }
-  if (r.type === 'primary' || r.type === 'secondary'){
+  if (r.type === 'trunk' || r.type === 'primary' || r.type === 'secondary'){
     // ligne pointillee au centre
     const pts = r.pts; let dist = 0;
     for (let i = 0; i < pts.length-1; i++){
@@ -885,7 +911,8 @@ for (const r of D.roads){
       if (isStreet && plateCount < 45){
         while (nextPlate < acc + L){
           const [px, pz] = at(nextPlate - acc);
-          addStreetPlate(r.name, px + nx*(r.w/2 + 1.9), pz + nz*(r.w/2 + 1.9), Math.atan2(nx, nz));
+          addStreetPlate(r.type === 'trunk' ? 'RN1 · ' + r.name.replace(/^Route nationale 1$/i, 'Route nationale') : r.name,
+                         px + nx*(r.w/2 + 1.9), pz + nz*(r.w/2 + 1.9), Math.atan2(nx, nz));
           plateCount++;
           nextPlate += 430;
         }
@@ -2677,9 +2704,12 @@ function updateAmbiance(dt){
   sun.target.position.set(S.pos.x, 0, S.pos.z);
   sun.target.updateMatrixWorld();
   sunSp.position.set(S.pos.x + 620, 950, S.pos.z + 460);
+  hillRing.position.set(S.pos.x * 0.97, 0, S.pos.z * 0.97);
   for (const c of clouds){
     c.position.x += dt * 2.4;
-    if (c.position.x > CX + 2300) c.position.x = CX - 2300;
+    if (c.position.x > S.pos.x + 2300) c.position.x -= 4600;      // les nuages restent autour du joueur
+    else if (c.position.x < S.pos.x - 2400) c.position.x += 4600;
+    if (Math.abs(c.position.z - S.pos.z) > 2400) c.position.z += (c.position.z < S.pos.z ? 1 : -1) * 4600;
   }
   // etiquette des lieux : visibles seulement a proximite (ou si c'est la cible)
   const tgt = (S.state === 'playing' || S.state === 'dialog') ? objTarget() : null;
