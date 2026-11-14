@@ -32,12 +32,12 @@
   .bar{ height:5px; background:#1c2433; border-radius:3px; overflow:hidden; flex:1; max-width:84px; }
   .bar i{ display:block; height:100%; background:linear-gradient(90deg,#48bb78,#ecc94b,#f56565); transition:width .3s; }
 
-  #objcard{ top:10px; left:50%; transform:translateX(-50%); text-align:center; min-width:0; width:min(46vw, 380px); }
-  #objcard .kicker{ font-size:9.5px; letter-spacing:2px; color:var(--gold); text-transform:uppercase; }
-  #objcard h2{ font-size:13.5px; margin:2px 0; }
-  #objcard .hint{ font-size:11px; color:#a9b6c9; }
-  #objcard .meta{ font-size:11px; margin-top:4px; color:var(--accent); display:flex; gap:12px; justify-content:center; }
-  #arrow{ font-size:16px; line-height:1; margin-top:2px; display:inline-block; transition:transform .15s linear; color:var(--gold); }
+  #objcard{ top:8px; left:50%; transform:translateX(-50%); text-align:center; min-width:0; width:min(280px, 36vw); padding:6px 10px; }
+  #objcard .kicker{ font-size:8px; letter-spacing:1.5px; color:var(--gold); text-transform:uppercase; }
+  #objcard h2{ font-size:11.5px; margin:1px 0; }
+  #objcard .hint{ font-size:10px; color:#a9b6c9; }
+  #objcard .meta{ font-size:10px; margin-top:2px; color:var(--accent); display:flex; gap:8px; justify-content:center; }
+  #arrow{ font-size:13px; line-height:1; margin-top:1px; display:inline-block; transition:transform .15s linear; color:var(--gold); }
 
   #minimapWrap{ top:10px; right:10px; padding:0; background:transparent; border:none; backdrop-filter:none; }
   #minimap{ display:block; border-radius:50%; background:#1a2433; width:160px; height:160px;
@@ -123,11 +123,10 @@
   .overlay .qualRow button.sel{ border-color:var(--gold); color:#fff; box-shadow:0 0 10px rgba(236,201,75,.3); }
   .kicker{ font-size:9.5px; letter-spacing:2px; color:var(--gold); text-transform:uppercase; margin-top:9px; }
   #charRow{ display:flex; gap:7px; margin-top:7px; flex-wrap:wrap; justify-content:center; }
-  .charcard{ background:#131c2c; border:2px solid #2a3650; border-radius:11px; padding:5px 4px 4px; cursor:pointer; text-align:center; width:72px; transition:.15s; }
-  .charcard:hover{ border-color:#4fd1c5; transform:translateY(-2px); }
-  .charcard.sel{ border-color:#ecc94b; box-shadow:0 0 12px rgba(236,201,75,.35); }
-  .charcard canvas{ width:60px; height:71px; display:block; margin:0 auto; }
-  .charcard div{ font-size:10.5px; margin-top:2px; font-weight:600; }
+  .lucCard{ display:flex; align-items:center; gap:12px; background:#131c2c; border:1px solid #2a3650; border-radius:12px; padding:9px 13px; margin-top:6px; max-width:340px; }
+  .lucCard canvas{ width:74px; height:86px; display:block; border-radius:8px; }
+  .lucMeta b{ font-size:15px; letter-spacing:.5px; }
+  .lucMeta span{ font-size:10.5px; color:#a9b6c9; display:block; margin-top:2px; line-height:1.35; }
   .hidden{ display:none !important; }
 
   #dialog{ position:absolute; left:50%; bottom:96px; transform:translateX(-50%); width:min(560px, 92vw); background:rgba(8,12,20,.95); border:1px solid var(--gold); border-radius:14px; padding:14px 18px; z-index:15; }
@@ -165,10 +164,10 @@
   body.touch #hud h1{ font-size:14px; }
   body.touch #hud .day{ font-size:10px; margin-bottom:4px; }
   body.touch .stat{ font-size:12px; margin:2px 0; gap:8px; }
-  body.touch #objcard{ min-width:0; width:min(360px, 42vw); padding:8px 11px; }
-  body.touch #objcard h2{ font-size:14px; }
-  body.touch #objcard .hint{ font-size:11px; }
-  body.touch #objcard .meta{ font-size:11px; gap:10px; }
+  body.touch #objcard{ min-width:0; width:min(260px, 44vw); padding:6px 9px; }
+  body.touch #objcard h2{ font-size:11px; }
+  body.touch #objcard .hint{ font-size:9px; }
+  body.touch #objcard .meta{ font-size:9.5px; gap:8px; }
   body.touch #minimapWrap{ padding:0; }
   body.touch #minimap{ width:112px; height:112px; }
   @media (max-height:480px){
@@ -195,10 +194,10 @@
     #hud .day{ font-size:9.5px; margin-bottom:3px; }
     .stat{ font-size:10px; margin:2px 0; gap:6px; }
     .bar{ max-width:60px; height:4px; }
-    #objcard{ width:min(62vw, 300px); padding:7px 9px; }
-    #objcard h2{ font-size:12px; }
+    #objcard{ width:min(56vw, 230px); padding:5px 8px; }
+    #objcard h2{ font-size:10.5px; }
     #objcard .hint{ display:none; }
-    #objcard .meta{ font-size:10px; gap:10px; }
+    #objcard .meta{ font-size:9px; gap:8px; }
     #minimap{ width:104px; height:104px; }
     #minimapWrap .credit{ display:none; }
     #voice{ width:170px; padding:7px 9px; }
@@ -223,13 +222,61 @@
     .overlay .sub{ font-size:9.5px; margin-bottom:6px; }
     .menuCard{ padding:10px 14px 9px; border-radius:12px; }
     .menuCard p{ font-size:11px; margin:3px 0; }
-    .charcard{ width:60px; padding:4px 3px 3px; }
-    .charcard canvas{ width:50px; height:59px; }
-    .charcard div{ font-size:9.5px; }
     .kicker{ margin-top:6px; }
     .overlay .btns{ margin-top:8px; gap:7px; }
     .overlay button{ padding:7px 14px; font-size:11.5px; }
     .overlay .keys{ display:none; }
+    .lucCard{ padding:7px 10px; }
+    .lucCard canvas{ width:60px; height:70px; }
+    .lucMeta b{ font-size:13px; }
+    .lucMeta span{ font-size:9.5px; }
+  }
+  /* --- tout tient sur smartphone en paysage (petite hauteur) --- */
+  @media (max-height:560px) and (pointer:coarse){
+    #hud{ top:6px; left:6px; padding:5px 7px; min-width:0; }
+    #hud h1{ font-size:10px; margin-bottom:0; }
+    #hud .day{ font-size:8.5px; margin-bottom:2px; }
+    .stat{ font-size:9px; margin:1px 0; gap:5px; }
+    .bar{ max-width:46px; height:3px; }
+    #minimap{ width:84px; height:84px; }
+    #minimapWrap{ top:6px; right:6px; }
+    body.touch #objcard{ top:6px; width:min(46vw, 200px); padding:4px 7px; }
+    #objcard h2{ font-size:10px; }
+    #objcard .hint{ display:none; }
+    #objcard .kicker{ font-size:7px; }
+    body.touch #hud h1{ font-size:9.5px; }
+    #voice{ display:none; }
+    #joy{ width:96px; height:96px; left:calc(10px + env(safe-area-inset-left, 0px)); bottom:calc(10px + env(safe-area-inset-bottom, 0px)); }
+    #joyKnob{ width:42px; height:42px; margin:-21px 0 0 -21px; }
+    #actions button{ width:54px; height:54px; font-size:20px; }
+    #actions{ right:calc(8px + env(safe-area-inset-right, 0px)); bottom:calc(10px + env(safe-area-inset-bottom, 0px)); }
+    #fabs{ bottom:calc(10px + env(safe-area-inset-bottom, 0px)); }
+    #fabs button{ width:38px; height:38px; font-size:17px; }
+    #streetName{ bottom:8px; }
+    #streetTxt{ font-size:13px; }
+    #streetSub{ font-size:8px; }
+    #streetPoi{ font-size:10px; }
+  }
+  /* --- petit smartphone portrait : on simplifie le HUD --- */
+  @media (max-width:480px){
+    #hud{ top:5px; left:5px; padding:5px 7px; }
+    #hud .day{ display:none; }
+    .stat{ font-size:9px; margin:1px 0; gap:5px; }
+    .bar{ max-width:44px; }
+    #minimap{ width:76px; height:76px; }
+    #objcard{ top:5px; width:52vw; padding:4px 7px; }
+    #objcard .kicker{ font-size:6.5px; letter-spacing:1px; }
+    #objcard h2{ font-size:9.5px; }
+    #objcard .hint{ display:none; }
+    #objcard .meta{ font-size:8px; gap:6px; }
+    #arrow{ font-size:11px; }
+    #voice{ bottom:5px; left:5px; width:150px; padding:5px 7px; }
+    #voice h2{ font-size:8px; margin-bottom:2px; }
+    #status,#interim,#final{ font-size:8.5px; min-height:0; }
+    #log{ display:none; }
+    button{ font-size:9px; padding:4px; }
+    #toast{ font-size:10px; }
+    #dialog{ bottom:64px; }
   }
 </style>
 </head>
@@ -252,7 +299,7 @@
 </div>
 
 <div id="hud" class="panel">
-  <h1>LUO <span id="ver" style="font-size:10px; color:#7f92ad; font-weight:600; letter-spacing:.5px; vertical-align:middle">v3.2.2</span></h1>
+  <h1>LUO <span id="ver" style="font-size:10px; color:#7f92ad; font-weight:600; letter-spacing:.5px; vertical-align:middle">v3.3.0</span></h1>
   <div class="day" id="clock">Jour 1 — 07:00 · Mbanza-Ngungu</div>
   <div class="stat"><span>📚 Moyenne</span><b id="notes">12,5 / 20</b></div>
   <div class="stat"><span>⚡ Énergie</span><span class="bar"><i id="energyBar" style="width:85%"></i></span></div>
@@ -332,8 +379,13 @@
     <p>Tu es étudiant à Mbanza-Ngungu, ville des deux universités — l'<b>ISP</b> (1981) et l'<b>Université Kongo</b>.
        Il faut arriver à l'heure partout, avec une énergie qui fond et un argent de poche qui rétrécit.
        Pilotage <b>à la voix</b> ou au clavier, dans les vraies rues de la ville.</p>
-    <div class="kicker">Choisis ton étudiant</div>
-    <div id="charRow"></div>
+    <div class="kicker">Ton étudiant</div>
+    <div class="lucCard">
+      <canvas id="lucAvatar" width="92" height="106"></canvas>
+      <div class="lucMeta"><b>Luc</b>
+        <span>Étudiant dégourdi de l'ISP</span>
+      </div>
+    </div>
     <div class="kicker" style="margin-top:14px">Qualité graphique</div>
     <div class="qualRow">
       <button data-q="auto">Auto</button><button data-q="low">Bas</button><button data-q="medium">Moyen</button><button data-q="high">Haut</button>
@@ -409,8 +461,6 @@ const D = window.WEWA_DATA;
 
 /* ===== Corrections « terrain » (croquis et photos de l'utilisateur) ===== */
 {
-  const cant = D.pois.find(p => p.name === 'Cantina du campus');
-  if (cant){ cant.x = 711; cant.z = 912; cant.desc = cant.desc || 'La « Cuisine » de l\'ISP : foufou, poisson sec et le thé à 200 francs.'; }   // la vraie cantine, pres de l'ISP
   if (!D.pois.some(p => p.name === 'Home des garçons ISP'))
     D.pois.push({ name: 'Home des garçons ISP', cat: 'universite', x: 825, z: 909, desc: 'Home des garçons (étudiants) de l\'ISP.' });
 }
@@ -935,7 +985,7 @@ const PAVED = new Set(['primary','secondary','tertiary','motorway','trunk']);
 /* Toutes les avenues / boulevards / routes nommees sont asphaltees (comme sur la carte), meme si OSM les classe « residential » */
 const AVENUE_RX = /^\s*(avenue|av[\s.]|boulevard|bd[\s.]|bvd|route\b|chauss[ée]e)/i;
 const NOT_AVENUE = new Set(['footway','path','track','steps','cycleway','pedestrian','bridleway','service']);
-const isAvenue = r => !r.surface && !!r.name && AVENUE_RX.test(r.name) && !NOT_AVENUE.has(r.type);
+const isAvenue = r => !r.surface && !!r.name && r.w >= 6 && !NOT_AVENUE.has(r.type);
 const STREET_TYPES = new Set(['trunk','primary','secondary','tertiary']);
 const HOLED = new Set(['trunk','primary','secondary','tertiary','residential']);
 let plateCount = 0;
@@ -1870,11 +1920,11 @@ for (const p of D.pois) poiByName[p.name] = p;
 /* --- plus de boites fictives : les vrais batiments OSM sont dessines tels quels.
         Chaque lieu cle a un panneau-portail (comme les vraies etablissements) + un libelle flottant --- */
 const KEY_POIS = ['ROND-POINT ISP', 'Université Kongo — Nouveau Campus', 'Marché central',
-                  'Cyber Café MwegISA', 'Cantina du campus', "Résidence — chez l'oncle",
+                  'Cyber Café MwegISA', 'Cuisine', "Résidence — chez l'oncle",
                   'Hôpital Nsona-Nkulu'];
 const GATE_NAMES = { 'ROND-POINT ISP': 'ROND-POINT ISP', 'Université Kongo — Nouveau Campus': 'UNIVERSITÉ KONGO',
                      'Marché central': 'MARCHÉ CENTRAL', 'Cyber Café MwegISA': 'CYBER CAFÉ',
-                     'Cantina du campus': 'CANTINA', "Résidence — chez l'oncle": 'RÉSIDENCE',
+                     'Cuisine': 'CUISINE', "Résidence — chez l'oncle": 'RÉSIDENCE',
                      'Hôpital Nsona-Nkulu': 'HÔPITAL NSONA-NKULU' };
 const poiLabels = [];
 
@@ -2480,10 +2530,8 @@ function limb(mat, w, h){
 
 /* --- personnages selectionnables --- */
 const CHARS = [
-  { name:'Kabeya', gender:'m', skin:0x6b4530, shirt:0xf4f1e6, pants:0x2b3a57, bag:0x2f6f4f,
-    hair:'short', collar:true, hint:'Le doyen du campus' },
-  { name:'Kito', gender:'m', skin:0x5d3d2a, shirt:0x4a90d6, pants:0x2f3d55, bag:0x8b5e3c,
-    hair:'short', hint:'Décontracté du quartier' },
+  { name:'Luc', gender:'m', skin:0x5d3d2a, shirt:0x4a90d6, pants:0x2f3d55, bag:0x8b5e3c,
+    hair:'short', hint:'Étudiant dégourdi de l\'ISP' },
 ];
 let charIdx = 0;
 let torso = null, legL = null, legR = null, armL = null, armR = null;
@@ -2859,8 +2907,8 @@ scene.add(rain);
 
 /* ============================ ETAT & JOURNEE ============================ */
 const day = [
-  { poi:'Cantina du campus', at:'07:20', budget:130,
-    title:'Petit-déj à la cantina',
+  { poi:'Cuisine', at:'07:20', budget:130,
+    title:'Petit-déj à la cuisine',
     hint:'Thé + pain avant le premier cours. T’es sur le campus, c’est juste à côté.',
     ok:'Le pain est chaud et la maman te file un supplément de thé. « Etudiants, mangez, la tête va travailler ! »',
     eff:{ energie:25, argent:-1500 } },
@@ -2959,7 +3007,7 @@ function objTarget(){
   return p ? new THREE.Vector3(p.x, 0, p.z) : new THREE.Vector3(0,0,0);
 }
 const OBJ_RADIUS = { 'Université Kongo — Nouveau Campus': 40, 'ROND-POINT ISP': 32,
-                     'Marché central': 28, 'Hôpital Nsona-Nkulu': 20, 'Cantina du campus': 10,
+                     'Marché central': 28, 'Hôpital Nsona-Nkulu': 20, 'Cuisine': 10,
                      'Résidence — chez l\'oncle': 10, 'Cyber Café MwegISA': 8 };
 function objRadius(){
   return OBJ_RADIUS[obj().poi] || 16;         // rayon d'arrivée par défaut
@@ -3138,119 +3186,33 @@ $('againBtn').onclick = startGame;
 $('changeBtn').onclick = () => { resetGame(); showOverlay($('menu')); };
 
 /* --- selection de personnage : portraits 2D + cartes --- */
-function drawAvatar(cv, cfg, idx){
-  const c = cv.getContext('2d');
-  const W = cv.width, H = cv.height, cx = W/2;
-  const col = h => '#' + h.toString(16).padStart(6, '0');
+/* ===== avatar statique de Luc (un seul personnage) ===== */
+function drawLucAvatar(){
+  const cv = $('lucAvatar'), c = cv.getContext('2d');
+  const W = cv.width, H = cv.height, cx = W / 2;
   const grd = c.createLinearGradient(0, 0, 0, H);
   grd.addColorStop(0, '#22334e'); grd.addColorStop(1, '#0d1622');
   c.fillStyle = grd; c.fillRect(0, 0, W, H);
-  c.fillStyle = 'rgba(0,0,0,.35)';                     // ombre au sol
-  c.beginPath(); c.ellipse(cx, 112, 26, 5.5, 0, 0, 7); c.fill();
-  const vignette = () => {                             // focus lumineux sur le personnage
-    const vg = c.createRadialGradient(cx, H*0.42, H*0.3, cx, H*0.5, H*0.8);
-    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.5)');
-    c.fillStyle = vg; c.fillRect(0, 0, W, H);
-  };
-  if (MODELS.players && MODELS.players[idx]){          // ce personnage a un vrai modele 3D
-    const sg = c.createLinearGradient(0, 40, 0, 112);
-    sg.addColorStop(0, '#51709c'); sg.addColorStop(1, '#2c3d57');
-    c.fillStyle = sg;
-    c.beginPath(); c.arc(cx, 28, 13.5, 0, 7); c.fill();    // tete
-    c.beginPath();                                          // torse (epaules)
-    c.moveTo(cx-15, 44); c.lineTo(cx+15, 44); c.lineTo(cx+18, 74); c.lineTo(cx-18, 74);
-    c.closePath(); c.fill();
-    c.fillRect(cx-14, 74, 12, 33); c.fillRect(cx+2, 74, 12, 33);   // jambes
-    c.fillRect(cx-22, 46, 8, 25); c.fillRect(cx+14, 46, 8, 25);    // bras
-    c.strokeStyle = 'rgba(0,0,0,.45)'; c.lineWidth = 2;     // contour
-    c.beginPath(); c.arc(cx, 28, 13.5, 0, 7); c.stroke();
-    c.fillStyle = 'rgba(236,201,75,.14)';                   // badge 3D
-    c.beginPath(); c.roundRect(cx-15, 97, 30, 18, 9); c.fill();
-    c.strokeStyle = '#ecc94b'; c.lineWidth = 1.5;
-    c.beginPath(); c.roundRect(cx-15, 97, 30, 18, 9); c.stroke();
-    c.fillStyle = '#ecc94b';
-    c.font = 'bold 12px sans-serif'; c.textAlign = 'center';
-    c.fillText('3D', cx, 110);
-    vignette();
-    return;
-  }
-  // jambes ou pagno
-  c.fillStyle = cfg.skirt ? col(cfg.skirtColor) : col(cfg.pants || 0x2f3d55);
-  if (cfg.skirt){
-    c.beginPath(); c.moveTo(cx-20, 68); c.lineTo(cx+20, 68); c.lineTo(cx+27, 102); c.lineTo(cx-27, 102);
-    c.closePath(); c.fill();
-  } else {
-    c.fillRect(cx-18, 66, 15, 42); c.fillRect(cx+3, 66, 15, 42);
-  }
-  c.fillStyle = '#141414';
-  c.fillRect(cx-20, 105, 17, 7); c.fillRect(cx+3, 105, 17, 7);
-  // sac (bretelles vues de face)
-  c.fillStyle = col(cfg.bag);
-  c.fillRect(cx-24, 46, 9, 24); c.fillRect(cx+15, 46, 9, 24);
-  // bras
-  c.fillStyle = col(cfg.skin);
-  c.fillRect(cx-33, 46, 9, 24); c.fillRect(cx+24, 46, 9, 24);
-  // torse (chemise/blouse)
-  c.fillStyle = col(cfg.shirt);
-  c.fillRect(cx-26, 44, 52, 26);
-  if (cfg.sleeves){ c.fillStyle = col(cfg.shirt); c.fillRect(cx-34, 44, 11, 13); c.fillRect(cx+23, 44, 11, 13); }
-  if (cfg.collar){ c.fillStyle = '#fff'; c.fillRect(cx-9, 44, 18, 7); }
-  // cou + tete
-  c.fillStyle = col(cfg.skin);
-  c.fillRect(cx-7, 35, 14, 11);
-  c.beginPath(); c.arc(cx, 26, 16, 0, 7); c.fill();
-  // yeux
-  c.fillStyle = '#111';
-  c.fillRect(cx-7, 24, 4, 4); c.fillRect(cx+3, 24, 4, 4);
-  // bouche
-  c.strokeStyle = 'rgba(60,30,25,.8)'; c.lineWidth = 2;
-  c.beginPath(); c.moveTo(cx-4, 34); c.lineTo(cx+4, 34); c.stroke();
-  // coiffure / casquette / foulard
-  if (cfg.hair === 'cap'){
-    c.fillStyle = col(cfg.capColor);
-    c.beginPath(); c.arc(cx, 24, 16.5, Math.PI, 0); c.fill();
-    c.fillRect(cx-16, 21, 32, 6);
-    c.fillRect(cx-3, 24, 26, 6);          // visiere
-  } else if (cfg.hair === 'wrap'){
-    c.fillStyle = col(cfg.hairColor);
-    c.beginPath(); c.arc(cx, 23, 17, Math.PI, 0); c.fill();
-    c.fillRect(cx-17, 21, 34, 7);
-    c.beginPath(); c.arc(cx+13, 9, 6, 0, 7); c.fill();   // noeud
-  } else if (cfg.hair === 'ponytail'){
-    c.fillStyle = '#171210';
-    c.beginPath(); c.arc(cx, 24, 16.5, Math.PI, 0); c.fill();
-    c.fillRect(cx-16, 21, 32, 6);
-    c.fillRect(cx-24, 22, 8, 30);         // queue sur le cote
-  } else if (cfg.hair === 'braids'){
-    c.fillStyle = '#171210';
-    c.beginPath(); c.arc(cx, 24, 16.5, Math.PI, 0); c.fill();
-    c.fillRect(cx-16, 21, 32, 6);
-    c.fillRect(cx-19, 24, 6, 18); c.fillRect(cx+13, 24, 6, 18);
-  } else {
-    c.fillStyle = '#171210';
-    c.beginPath(); c.arc(cx, 24, 16.5, Math.PI, 0); c.fill();
-    c.fillRect(cx-16, 21, 32, 6);
-  }
-  vignette();
+  c.fillStyle = 'rgba(0,0,0,.35)';
+  c.beginPath(); c.ellipse(cx, 94, 22, 4, 0, 0, 7); c.fill();
+  const sg = c.createLinearGradient(0, 30, 0, 82);
+  sg.addColorStop(0, '#51709c'); sg.addColorStop(1, '#2c3d57');
+  c.fillStyle = sg;
+  c.beginPath(); c.arc(cx, 24, 12, 0, 7); c.fill();        // tete
+  c.beginPath(); c.moveTo(cx-13, 40); c.lineTo(cx+13, 40); c.lineTo(cx+16, 66); c.lineTo(cx-16, 66);
+  c.closePath(); c.fill();                                  // torse
+  c.fillRect(cx-12, 66, 10, 28); c.fillRect(cx+2, 66, 10, 28);   // jambes
+  c.fillRect(cx-19, 42, 7, 22); c.fillRect(cx+12, 42, 7, 22);    // bras
+  c.strokeStyle = 'rgba(0,0,0,.45)'; c.lineWidth = 2;
+  c.beginPath(); c.arc(cx, 24, 12, 0, 7); c.stroke();
+  c.fillStyle = 'rgba(236,201,75,.18)';                     // badge 3D
+  c.beginPath(); c.roundRect(cx-14, 84, 28, 16, 8); c.fill();
+  c.strokeStyle = '#ecc94b'; c.lineWidth = 1.4;
+  c.beginPath(); c.roundRect(cx-14, 84, 28, 16, 8); c.stroke();
+  c.fillStyle = '#ecc94b'; c.font = 'bold 11px sans-serif'; c.textAlign = 'center';
+  c.fillText('3D', cx, 96);
 }
-function buildCharRow(){
-  const row = $('charRow');
-  row.innerHTML = '';
-  CHARS.forEach((ch, i) => {
-    const card = document.createElement('div');
-    card.className = 'charcard' + (i === charIdx ? ' sel' : '');
-    card.title = ch.hint;
-    const cv = document.createElement('canvas');
-    cv.width = 104; cv.height = 120;
-    drawAvatar(cv, ch, i);
-    const nm = document.createElement('div');
-    nm.textContent = ch.name + (ch.gender === 'f' ? ' ♀' : ' ♂');
-    card.appendChild(cv); card.appendChild(nm);
-    card.onclick = () => { applyCharacter(i); buildCharRow(); };
-    row.appendChild(card);
-  });
-}
-buildCharRow();
+drawLucAvatar();
 
 /* ============================ MOUVEMENT ============================ */
 const walkV = 6, runV = 14.5;
@@ -3758,7 +3720,7 @@ function poiSearch(t){
     ['universite', 'Université Kongo — Nouveau Campus'], ['uk ', 'Université Kongo — Nouveau Campus'],
     ['campus', 'Université Kongo — Nouveau Campus'],
     ['marche', 'Marché central'], ['cyber', 'Cyber Café MwegISA'], ['impression', 'Cyber Café MwegISA'],
-    ['cantina', 'Cantina du campus'], ['cantine', 'Cantina du campus'],
+    ['cuisine', 'Cuisine'], ['cantina', 'Cuisine'], ['cantine', 'Cuisine'], ['cuisin', 'Cuisine'],
     ['residence', "Résidence — chez l'oncle"], ['maison', "Résidence — chez l'oncle"],
     ['lycee', null], ['hopital', null], ['eglise', null], ['mosquee', null],
   ];
@@ -4084,7 +4046,6 @@ async function loadModelLibrary(){
       scene.add(ped.g); crowdISP[i] = ped.g;
     });
     applyCharacter(charIdx);
-    buildCharRow();                        // les cartes gagnent leur badge "3D"
     applyQuality();
     revealCast();                          // tout est pret : on fait entrer les personnages
   } catch(e){ console.warn('Chargement des modeles .glb impossible, on garde les cubes :', e); revealCast(); }
