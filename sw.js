@@ -1,5 +1,5 @@
 // Luvaka — service worker : l'app fonctionne hors ligne (apres 1re visite)
-const CACHE = 'luvaka-v3.0.0';
+const CACHE = 'luo-v3.1.0';
 const ASSETS = [
   './',
   './index.html',
