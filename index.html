@@ -1798,13 +1798,14 @@ const HOME_BAY_URL = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAU
       addBox(extra, wallX, (z0 + z1)/2, 0.35, 6.0, 2.7, 0x3a342f, [1,0], [0,1], 0);                    // portail
       bldRects.push({ x: wallX, z: (z0 + wz0)/2 - 2, w: 0.8, d: Math.abs((z0 + z1)/2 - 3 - wz0), });
       bldRects.push({ x: wallX, z: ((z0 + z1)/2 + 3 + wz1)/2, w: 0.8, d: Math.abs(wz1 - (z0 + z1)/2 - 3) });
-      // pancarte « HOME IMMACULÉ » posee sur le mur de cloture, vers la chaussee
+      // pancarte « HOME IMMACULÉ » posee sur le mur de cloture, face a l'Avenue du Commerce (route est)
       {
-        const sgn = new THREE.Mesh(new THREE.PlaneGeometry(6.2, 1.05), new THREE.MeshBasicMaterial({ map: signTexture('immacule') }));
-        sgn.position.set(wallX + 0.19, 4.6, (z0 + z1)/2 - 5.2);
-        sgn.rotation.y = Math.PI / 2;                             // face route (ouest)
+        const sgn = new THREE.Mesh(new THREE.PlaneGeometry(8.4, 1.35),
+          new THREE.MeshBasicMaterial({ map: signTexture('immacule'), side: THREE.DoubleSide }));
+        sgn.position.set(wallX + 0.22, 4.4, (z0 + z1)/2 - 6.0);   // portion pleine du mur (a cote du portail)
+        sgn.rotation.y = Math.PI / 2;                             // face route (est, vers l'Avenue du Commerce)
         scene.add(sgn);
-        bldRects.push({ x: wallX + 0.2, z: (z0 + z1)/2 - 5.2, w: 0.3, d: 2.0 });
+        bldRects.push({ x: wallX + 0.25, z: (z0 + z1)/2 - 6.0, w: 0.4, d: 3.0 });
       }
       const tx = x0 - 3.2, tz = (z0 + z1)/2;                                                            // chateau d'eau
       for (const [dx, dz] of [[-1,-1],[1,-1],[-1,1],[1,1]]) addBox(extra, tx + dx*0.95, tz + dz*0.95, 0.22, 0.22, 7.2, 0x6a3d2f, [1,0], [0,1], 0);
@@ -3661,8 +3662,8 @@ function streetTick(now){
       if (d < bd - 3 || (d < bd + 3 && s.rank > bestRank)){ bd = d; best = s; bestRank = s.rank; }
     }
   }
-  // POI le plus proche (dans les 150m) : on le montre sous le nom de rue
-  let bp = null, bpd = 150;
+  // POI le plus proche (dans les 80m) : on le montre sous le nom de rue
+  let bp = null, bpd = 80;
   for (const p of D.pois){
     const d = Math.hypot(p.x - S.pos.x, p.z - S.pos.z);
     if (d < bpd){ bpd = d; bp = p; }
