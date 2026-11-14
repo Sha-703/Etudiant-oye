@@ -1,0 +1,13 @@
+# Netlify — ne jamais mettre index.html en cache (le SW/CDN ne doit plus servir une vieille version)
+/index.html
+  Cache-Control: no-cache, no-store, must-revalidate
+/
+  Cache-Control: no-cache, no-store, must-revalidate
+/manifest.json
+  Cache-Control: no-cache
+/sw.js
+  Cache-Control: no-cache
+/roads.js
+  Cache-Control: public, max-age=3600
+/models/*
+  Cache-Control: public, max-age=604800, immutable
