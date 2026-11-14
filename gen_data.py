@@ -293,10 +293,10 @@ if not found_isp:
 manual.append({"name": "Cyber Café MwegISA", "cat": "cyber",
                "lon": 14.8678, "lat": -5.2512,
                "desc": "Impressions, forfaits 1h, et le ventilateur qui grince."})
-if uk:
-    manual.append({"name": "Cantina du campus", "cat": "cantina",
-                   "lon": uk[0] + 0.0011, "lat": uk[1] + 0.0009,
-                   "desc": "Foufou, poisson sec, et le thé à 200 francs."})
+# Cuisine : la vraie cantine/cuisine du campus ISP, a l'emplacement reel (712,912)
+manual.append({"name": "Cuisine", "cat": "cantina",
+               "lon": 14.85642, "lat": -5.26675,
+               "desc": "La cuisine de l'ISP : foufou, poisson sec, et le thé à 200 francs."})
 
 # Stade : non tagge dans le rayon -> vraies coord Nominatim (avenue Nsasa)
 if not any(p["cat"] == "stade" for p in pois):

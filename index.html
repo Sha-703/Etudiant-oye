@@ -127,6 +127,17 @@
   .lucCard canvas{ width:74px; height:86px; display:block; border-radius:8px; }
   .lucMeta b{ font-size:15px; letter-spacing:.5px; }
   .lucMeta span{ font-size:10.5px; color:#a9b6c9; display:block; margin-top:2px; line-height:1.35; }
+
+  /* --- bouton d'installation app (Android / iOS) --- */
+  .installBtn{ position:absolute; top:182px; right:12px; z-index:15; margin:0; width:auto;
+               padding:7px 13px; border-radius:20px; background:rgba(8,12,20,.88);
+               border:1.5px solid var(--gold); color:var(--gold); font-size:11px; font-weight:700;
+               letter-spacing:.5px; cursor:pointer; box-shadow:0 4px 18px rgba(236,201,75,.25); }
+  .installBtn:hover{ background:rgba(236,201,75,.18); transform:translateY(-1px); }
+  .installBtn.hidden{ display:none; }
+  @media (max-height:560px){
+    .installBtn{ top:6px; right:150px; font-size:10px; padding:5px 9px; }
+  }
   .hidden{ display:none !important; }
 
   #dialog{ position:absolute; left:50%; bottom:96px; transform:translateX(-50%); width:min(560px, 92vw); background:rgba(8,12,20,.95); border:1px solid var(--gold); border-radius:14px; padding:14px 18px; z-index:15; }
@@ -299,7 +310,7 @@
 </div>
 
 <div id="hud" class="panel">
-  <h1>LUO <span id="ver" style="font-size:10px; color:#7f92ad; font-weight:600; letter-spacing:.5px; vertical-align:middle">v3.3.0</span></h1>
+  <h1>LUO <span id="ver" style="font-size:10px; color:#7f92ad; font-weight:600; letter-spacing:.5px; vertical-align:middle">v3.4.0</span></h1>
   <div class="day" id="clock">Jour 1 — 07:00 · Mbanza-Ngungu</div>
   <div class="stat"><span>📚 Moyenne</span><b id="notes">12,5 / 20</b></div>
   <div class="stat"><span>⚡ Énergie</span><span class="bar"><i id="energyBar" style="width:85%"></i></span></div>
@@ -333,6 +344,8 @@
   <div id="log"></div>
   <button id="micBtn">🎤 Activer le micro</button>
 </div>
+
+<button id="installBtn" class="installBtn hidden" aria-label="Installer l'application sur votre appareil">⬇ Installer l'app</button>
 
 <div id="help" class="panel">
   <h2>Commandes</h2>
@@ -2530,8 +2543,8 @@ function limb(mat, w, h){
 
 /* --- personnages selectionnables --- */
 const CHARS = [
-  { name:'Luc', gender:'m', skin:0x5d3d2a, shirt:0x4a90d6, pants:0x2f3d55, bag:0x8b5e3c,
-    hair:'short', hint:'Étudiant dégourdi de l\'ISP' },
+  { name:'Luc', gender:'m', skin:0x6b4530, shirt:0xf4f1e6, pants:0x2b3a57, bag:0x2f6f4f,
+    hair:'short', collar:true, hint:'Étudiant dégourdi de l\'ISP' },
 ];
 let charIdx = 0;
 let torso = null, legL = null, legR = null, armL = null, armR = null;
@@ -3673,6 +3686,36 @@ window.addEventListener('beforeunload', () => saveGame());
 $('resumeBtn').onclick = togglePause;
 $('playMic').onclick = () => { startMic(); startGame(); };
 $('playKeys').onclick = () => startGame();
+
+/* ===== installation de l'app (Android / iOS) ===== */
+let installPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  installPrompt = e;
+  $('installBtn').classList.remove('hidden');
+});
+window.addEventListener('appinstalled', () => {
+  $('installBtn').classList.add('hidden');
+  installPrompt = null;
+  toast('Étudiant Oyé est installée sur ton téléphone.');
+});
+$('installBtn').addEventListener('click', async () => {
+  if (installPrompt){
+    installPrompt.prompt();
+    const choice = await installPrompt.userChoice;
+    if (choice && choice.outcome === 'accepted') $('installBtn').classList.add('hidden');
+    installPrompt = null;
+  } else if (/iPhone|iPad|iPod/i.test(navigator.userAgent)){
+    // iOS ne supporte pas beforeinstallprompt : consignes manuelles
+    toast('Sur iPhone : appuie sur Partager (⬆) dans Safari, puis « Sur l’écran d’accueil »');
+  } else {
+    toast('Sur Android : menu ⋮ de Chrome → « Installer l’application »');
+  }
+});
+// iOS n'envoie jamais beforeinstallprompt : on affiche quand meme le bouton si on n'est pas deja en app
+if (/iPhone|iPad|iPod/i.test(navigator.userAgent) && !window.navigator.standalone){
+  $('installBtn').classList.remove('hidden');
+}
 
 /* ===== connexion (écran d'accueil) ===== */
 function refreshLoginHint(){

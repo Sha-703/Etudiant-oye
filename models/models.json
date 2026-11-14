@@ -1,6 +1,6 @@
 {
   "players": [
-    { "file": "casual_man.glb", "height": 1.75 }
+    { "file": "hero_ps1.glb", "height": 1.78 }
   ],
   "walkers": [
     { "file": "casual_man.glb", "height": 1.72 },
