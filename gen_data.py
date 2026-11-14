@@ -275,10 +275,21 @@ if uk:
                    "lon": uk[0] + 0.0018, "lat": uk[1] + 0.0012,
                    "desc": "Ton lit, ta moustiquaire, ton petit courant d'air."})
 
-# ISP : pas encore sur OSM -> on la place au centre-ville (evocation)
-manual.append({"name": "ISP Mbanza-Ngungu", "cat": "universite",
-               "lon": 14.857064, "lat": -5.268728,   # ROND-POINT I.S.P. -- entree du campus (map.osm)
-               "desc": "Institut Supérieur Pédagogique, le premier établissement supérieur du Kongo-Central. Le campus : home ISP, home étudiant, rectorat."})
+# ISP : l'OSM le tague "ROND-POINT I.S.P." (amenity=marketplace) — c'est l'entree du campus.
+# On le retrouve et on le re-classe en universite avec sa description.
+found_isp = False
+for p in pois:
+    if "".join(ch for ch in p["name"].upper() if ch.isalnum()) == "RONDPOINTISP":
+        p["name"] = "ROND-POINT ISP"
+        p["cat"] = "universite"
+        p["desc"] = "Institut Supérieur Pédagogique, le premier établissement supérieur du Kongo-Central. Le campus : home ISP, home étudiant, rectorat."
+        found_isp = True
+        break
+if not found_isp:
+    # securite : si OSM ne le connait pas, on l'ajoute quand meme
+    manual.append({"name": "ROND-POINT ISP", "cat": "universite",
+                   "lon": 14.857064, "lat": -5.268728,
+                   "desc": "Institut Supérieur Pédagogique, le premier établissement supérieur du Kongo-Central. Le campus : home ISP, home étudiant, rectorat."})
 manual.append({"name": "Cyber Café MwegISA", "cat": "cyber",
                "lon": 14.8678, "lat": -5.2512,
                "desc": "Impressions, forfaits 1h, et le ventilateur qui grince."})

@@ -1,6 +1,6 @@
 {
   "name": "Luo Étudiant Oyé — une journée d'étudiant à Mbanza-Ngungu",
-  "short_name": "LUO",
+  "short_name": "Étudiant Oyé",
   "description": "Jeu 3D vocal sur la vie d'un étudiant à Mbanza-Ngungu (Kongo-Central, RDC) : cours à l'ISP et à l'Université Kongo, voix, vraies rues OpenStreetMap.",
   "start_url": "./index.html",
   "scope": "./",

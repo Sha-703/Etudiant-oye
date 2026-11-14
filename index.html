@@ -7,11 +7,11 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Luo Étudiant Oyé">
+<meta name="apple-mobile-web-app-title" content="Étudiant Oyé">
 <meta name="description" content="Jeu 3D sur la vie d'un étudiant à Mbanza-Ngungu (Kongo-Central, RDC) — voix, ISP, Université Kongo, vraies rues OpenStreetMap.">
 <link rel="icon" type="image/svg+xml" href="icon.svg">
 <link rel="manifest" href="manifest.json">
-<title>Luo Étudiant Oyé — une journée d'étudiant à Mbanza-Ngungu</title>
+<title>Étudiant Oyé</title>
 <style>
   :root{
     --accent: #4fd1c5;
@@ -252,7 +252,7 @@
 </div>
 
 <div id="hud" class="panel">
-  <h1>LUO <span id="ver" style="font-size:10px; color:#7f92ad; font-weight:600; letter-spacing:.5px; vertical-align:middle">v3.1.0</span></h1>
+  <h1>LUO <span id="ver" style="font-size:10px; color:#7f92ad; font-weight:600; letter-spacing:.5px; vertical-align:middle">v3.2.0</span></h1>
   <div class="day" id="clock">Jour 1 — 07:00 · Mbanza-Ngungu</div>
   <div class="stat"><span>📚 Moyenne</span><b id="notes">12,5 / 20</b></div>
   <div class="stat"><span>⚡ Énergie</span><span class="bar"><i id="energyBar" style="width:85%"></i></span></div>
@@ -1651,6 +1651,11 @@ const HOME_BAY_URL = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAU
       c.fillStyle = '#f4d22a'; c.font = 'bold 26px sans-serif'; c.fillText('★', 58, 78);
       c.fillStyle = '#c0182d'; c.fillRect(900, 36, 38, 80); c.fillStyle = '#1b6fd0'; c.fillRect(938, 36, 38, 80);   // ecusson
       c.fillStyle = '#f4d22a'; c.fillRect(900, 36, 76, 22);
+    } else if (kind === 'immacule'){
+      c.fillStyle = '#7a2a2a'; c.fillRect(0, 0, 1024, 160);
+      c.strokeStyle = '#f3f2ec'; c.lineWidth = 10; c.strokeRect(18, 14, 988, 132);
+      c.fillStyle = '#fbf7ee'; c.font = 'bold 64px sans-serif'; c.fillText('HOME IMMACULÉ', 512, 84);
+      c.fillStyle = '#e8c964'; c.font = 'bold 26px sans-serif'; c.fillText('— RÉSIDENCE DES ÉTUDIANTS —', 512, 132);
     } else {
       c.fillStyle = '#c0182d'; c.font = 'bold 74px sans-serif'; c.fillText('HOME DES ETUDIANTS', 512, 108);
     }
@@ -1793,6 +1798,14 @@ const HOME_BAY_URL = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAU
       addBox(extra, wallX, (z0 + z1)/2, 0.35, 6.0, 2.7, 0x3a342f, [1,0], [0,1], 0);                    // portail
       bldRects.push({ x: wallX, z: (z0 + wz0)/2 - 2, w: 0.8, d: Math.abs((z0 + z1)/2 - 3 - wz0), });
       bldRects.push({ x: wallX, z: ((z0 + z1)/2 + 3 + wz1)/2, w: 0.8, d: Math.abs(wz1 - (z0 + z1)/2 - 3) });
+      // pancarte « HOME IMMACULÉ » posee sur le mur de cloture, vers la chaussee
+      {
+        const sgn = new THREE.Mesh(new THREE.PlaneGeometry(6.2, 1.05), new THREE.MeshBasicMaterial({ map: signTexture('immacule') }));
+        sgn.position.set(wallX + 0.19, 4.6, (z0 + z1)/2 - 5.2);
+        sgn.rotation.y = Math.PI / 2;                             // face route (ouest)
+        scene.add(sgn);
+        bldRects.push({ x: wallX + 0.2, z: (z0 + z1)/2 - 5.2, w: 0.3, d: 2.0 });
+      }
       const tx = x0 - 3.2, tz = (z0 + z1)/2;                                                            // chateau d'eau
       for (const [dx, dz] of [[-1,-1],[1,-1],[-1,1],[1,1]]) addBox(extra, tx + dx*0.95, tz + dz*0.95, 0.22, 0.22, 7.2, 0x6a3d2f, [1,0], [0,1], 0);
       addBox(extra, tx, tz, 2.5, 2.5, 0.2, 0x6a3d2f, [1,0], [0,1], 7.2);
@@ -1855,10 +1868,10 @@ for (const p of D.pois) poiByName[p.name] = p;
 
 /* --- plus de boites fictives : les vrais batiments OSM sont dessines tels quels.
         Chaque lieu cle a un panneau-portail (comme les vraies etablissements) + un libelle flottant --- */
-const KEY_POIS = ['ISP Mbanza-Ngungu', 'Université Kongo — Nouveau Campus', 'Marché central',
+const KEY_POIS = ['ROND-POINT ISP', 'Université Kongo — Nouveau Campus', 'Marché central',
                   'Cyber Café MwegISA', 'Cantina du campus', "Résidence — chez l'oncle",
                   'Hôpital Nsona-Nkulu'];
-const GATE_NAMES = { 'ISP Mbanza-Ngungu': 'ISP', 'Université Kongo — Nouveau Campus': 'UNIVERSITÉ KONGO',
+const GATE_NAMES = { 'ROND-POINT ISP': 'ROND-POINT ISP', 'Université Kongo — Nouveau Campus': 'UNIVERSITÉ KONGO',
                      'Marché central': 'MARCHÉ CENTRAL', 'Cyber Café MwegISA': 'CYBER CAFÉ',
                      'Cantina du campus': 'CANTINA', "Résidence — chez l'oncle": 'RÉSIDENCE',
                      'Hôpital Nsona-Nkulu': 'HÔPITAL NSONA-NKULU' };
@@ -2788,13 +2801,14 @@ for (let i = 0; i < 4; i++){
               dir: Math.random()<.5?1:-1, sp: 0.00004 + Math.random()*0.00003 });
 }
 
-/* --- foule du marché --- */
+/* --- foule (marche central + ROND-POINT ISP) --- */
 const crowd = [];
+const crowdISP = [];
 let crowdTpl = null;                       // talking_man anime (foule vivante)
-function ensureCrowd(n){
-  const mk = poiByName['Marché central'];
+function ensureCrowd(poiName, list, n){
+  const mk = poiByName[poiName];
   if (!mk) return;
-  while (crowd.length < n){
+  while (list.length < n){
     let g;
     if (crowdTpl && MODELS.instantiate){   // talking_man anime des que disponible
       const inst = MODELS.instantiate(crowdTpl);
@@ -2810,7 +2824,7 @@ function ensureCrowd(n){
       freezePose(ped);
       g = ped.g;
     }
-    // dans la cour du marche, hors des vrais batiments OSM
+    // autour du POI, hors des vrais batiments OSM
     let a = Math.random()*Math.PI*2, rr = 9 + Math.random()*15;
     let x = mk.x + Math.cos(a)*rr, z = mk.z + Math.sin(a)*rr;
     for (let tries = 0; tries < 7 && insideBld(x, z, 1.6); tries++){
@@ -2821,7 +2835,7 @@ function ensureCrowd(n){
     g.rotation.y = Math.random()*Math.PI*2;
     g.traverse(o => { if (o.isMesh) o.castShadow = true; });
     scene.add(g);
-    crowd.push(g);
+    list.push(g);
   }
 }
 
@@ -2849,7 +2863,7 @@ const day = [
     hint:'Thé + pain avant le premier cours. T’es sur le campus, c’est juste à côté.',
     ok:'Le pain est chaud et la maman te file un supplément de thé. « Etudiants, mangez, la tête va travailler ! »',
     eff:{ energie:25, argent:-1500 } },
-  { poi:'ISP Mbanza-Ngungu', at:'08:00', budget:420,
+  { poi:'ROND-POINT ISP', at:'08:00', budget:420,
     title:'Cours de 8h à l’ISP',
     hint:'Amphi 2. Deux quartiers plus loin — prends la route rapide.',
     ok:'Tu arrives essoufflé mais à l’heure. Le prof te remarque : « Enfin quelqu’un qui court après le savoir ! »',
@@ -2922,7 +2936,7 @@ function resetGame(){
   S.rain = false;
   S.yaw = Math.PI;                                      // face au campus ISP (nord)
   S.speed = 0;
-  const ISP0 = poiByName["ISP Mbanza-Ngungu"];           // le personnage commence devant l'ISP (ROND-POINT)
+  const ISP0 = poiByName["ROND-POINT ISP"];           // le personnage commence devant l'ISP (ROND-POINT)
   S.pos = new THREE.Vector3(ISP0.x, 0, ISP0.z);
   const rb0 = ROUNDABOUTS.find(rb => Math.hypot(rb.x - ISP0.x, rb.z - ISP0.z) < 25);
   if (rb0){                                              // on demarre sur le rond-point, face a l'ilot central
@@ -2943,7 +2957,7 @@ function objTarget(){
   const p = poiByName[obj().poi];
   return p ? new THREE.Vector3(p.x, 0, p.z) : new THREE.Vector3(0,0,0);
 }
-const OBJ_RADIUS = { 'Université Kongo — Nouveau Campus': 40, 'ISP Mbanza-Ngungu': 32,
+const OBJ_RADIUS = { 'Université Kongo — Nouveau Campus': 40, 'ROND-POINT ISP': 32,
                      'Marché central': 28, 'Hôpital Nsona-Nkulu': 20, 'Cantina du campus': 10,
                      'Résidence — chez l\'oncle': 10, 'Cyber Café MwegISA': 8 };
 function objRadius(){
@@ -3438,7 +3452,7 @@ function updateLife(dt){
       if (ddx*ddx + ddz*ddz < 8100) w.mixer.update(dt);
     }
   }
-  for (const c of crowd){                               // foule animee (talking_man) : idem, proche seulement
+  for (const c of crowd.concat(crowdISP)){               // foule animee (talking_man) : idem, proche seulement
     if (c.userData.mixer && c.visible){
       const ddx = c.position.x - S.pos.x, ddz = c.position.z - S.pos.z;
       if (ddx*ddx + ddz*ddz < 8100) c.userData.mixer.update(dt);
@@ -3549,7 +3563,7 @@ function drawStaticMap(){
     }
   }
   /* noms des lieux-cles sur la carte, comme une vraie carte */
-  const MAP_TAG = { 'ISP Mbanza-Ngungu': 'ISP', 'Université Kongo': 'UK', 'Université Kongo — Nouveau Campus': 'UK',
+  const MAP_TAG = { 'ROND-POINT ISP': 'R-P ISP', 'Université Kongo': 'UK', 'Université Kongo — Nouveau Campus': 'UK',
                     'BATIMENT ADMINISTRATIF DE L\'UNIVERSITE KONGO': 'UK — ADM', 'Marché central': 'MARCHÉ',
                     'Gare centrale': 'GARE', 'Stade de Mbanza-Ngungu': 'STADE', 'Musée': 'MUSÉE' };
   c.font = 'bold 12px "Segoe UI", sans-serif';
@@ -3739,7 +3753,7 @@ const norm = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '
 
 function poiSearch(t){
   const keys = [
-    ['isp', 'ISP Mbanza-Ngungu'], ['institut', 'ISP Mbanza-Ngungu'],
+    ['isp', 'ROND-POINT ISP'], ['institut', 'ROND-POINT ISP'], ['rond', 'ROND-POINT ISP'], ['point', 'ROND-POINT ISP'], ['rond-point', 'ROND-POINT ISP'],
     ['universite', 'Université Kongo — Nouveau Campus'], ['uk ', 'Université Kongo — Nouveau Campus'],
     ['campus', 'Université Kongo — Nouveau Campus'],
     ['marche', 'Marché central'], ['cyber', 'Cyber Café MwegISA'], ['impression', 'Cyber Café MwegISA'],
@@ -3916,10 +3930,12 @@ function applyQuality(){
   renderer.toneMappingExposure = Q.exposure;
   if (castReady){                          // anti-flash : on n'apparait qu'aux premiers vrais modeles
     ensureWalkers(Q.walkers);
-    ensureCrowd(Q.crowd);
+    ensureCrowd('Marché central', crowd, Q.crowd);
+    ensureCrowd('ROND-POINT ISP', crowdISP, Math.max(2, Math.round(Q.crowd * 0.8)));
     walkersActive = Q.walkers;
     walkers.forEach((w, i) => { w.g.visible = i < Q.walkers; });
     crowd.forEach((g, i) => { g.visible = i < Q.crowd; });
+    crowdISP.forEach((g, i) => { g.visible = i < Math.max(2, Math.round(Q.crowd * 0.8)); });
   }
   rainN = Math.min(RAIN_N, Q.rain);
   rainGeo.setDrawRange(0, rainN);
@@ -4058,6 +4074,14 @@ async function loadModelLibrary(){
       ped.g.traverse(o => { if (o.isMesh) o.castShadow = true; });
       scene.add(ped.g); crowd[i] = ped.g;
     });
+    if (wProtos.length) crowdISP.forEach((old, i) => {
+      if (old.userData.talk) return;
+      scene.remove(old);
+      const ped = makePedestrian(); freezePose(ped);
+      ped.g.position.copy(old.position); ped.g.rotation.y = old.rotation.y;
+      ped.g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+      scene.add(ped.g); crowdISP[i] = ped.g;
+    });
     applyCharacter(charIdx);
     buildCharRow();                        // les cartes gagnent leur badge "3D"
     applyQuality();
@@ -4140,6 +4164,21 @@ loadModelLibrary();
     addGlbTraffic('models/fiat_punto.glb',  4.0, 3, 5, 'boxCar');
     addGlbTraffic('models/luaz.glb',        3.9, 2, 7, 'minibus');
 
+    /* trafic sur l'Avenue du Commerce (le long du campus ISP) */
+    const avCommerce = D.roads.find(r => r.name && /avenue du commerce/i.test(r.name));
+    if (avCommerce){
+      gltfLoader.load('models/luaz.glb', gltf => {
+        for (let i = 0; i < 3; i++){
+          const g = fitModel(gltf.scene.clone(true), 4.2, false);
+          if (!g) return;
+          prepGLB(g);
+          scene.add(g);
+          cars.push({ g, pts: avCommerce.pts, t: Math.random(), dir: i % 2 ? 1 : -1, sp: 0.00004 + Math.random()*0.00002 });
+        }
+        console.log('GLB OK : luaz (trafic Avenue du Commerce — campus)');
+      });
+    }
+
     /* morceaux de voie telecharges : poses sur la vraie ligne pres de la gare */
     gltfLoader.load('models/rail_piece.glb', gltf => {
       const piece = fitModel(gltf.scene, 6.0, false);          // 6 m de long, pose a plat
@@ -4193,10 +4232,10 @@ loadModelLibrary();
       wrap.add(root);
       const clip = gltf.animations[0] || null;
       crowdTpl = { wrap, clips: clip ? { talk: clip } : {} };
-      const swap = () => {
+      const swapList = list => {
         if (!MODELS.instantiate) return;       // instantiate pas encore pret : crowdTpl sera pris par ensureCrowd
-        for (let i = 0; i < crowd.length; i++){
-          const old = crowd[i];
+        for (let i = 0; i < list.length; i++){
+          const old = list[i];
           if (old.userData.talk) continue;     // deja un talking_man
           const inst = MODELS.instantiate(crowdTpl);
           const g = inst.group;
@@ -4213,11 +4252,12 @@ loadModelLibrary();
           g.traverse(o => { if (o.isMesh) o.castShadow = true; });
           scene.add(g);
           scene.remove(old);
-          crowd[i] = g;
+          list[i] = g;
         }
       };
-      swap();
-      console.log('GLB OK : talking_man (foule du marche animee)');
+      swapList(crowd);
+      swapList(crowdISP);
+      console.log('GLB OK : talking_man (foules du marche et du campus animees)');
     }, undefined, e => console.log('GLB rate : talking_man', e));
   } catch(e){ console.warn('Vehicules GLB indisponibles, on garde les boites :', e); }
 })();
