@@ -7,11 +7,11 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Luvaka">
+<meta name="apple-mobile-web-app-title" content="Luo Étudiant Oyé">
 <meta name="description" content="Jeu 3D sur la vie d'un étudiant à Mbanza-Ngungu (Kongo-Central, RDC) — voix, ISP, Université Kongo, vraies rues OpenStreetMap.">
 <link rel="icon" type="image/svg+xml" href="icon.svg">
 <link rel="manifest" href="manifest.json">
-<title>Luvaka — une journée d'étudiant à Mbanza-Ngungu</title>
+<title>Luo Étudiant Oyé — une journée d'étudiant à Mbanza-Ngungu</title>
 <style>
   :root{
     --accent: #4fd1c5;
@@ -238,8 +238,8 @@
 <!-- ===== ÉCRAN DE CONNEXION (PWA) ===== -->
 <div class="overlay loginFull" id="login">
   <div class="loginCard">
-    <div class="loginLogo">LUVAKA</div>
-    <div class="loginTag">LA VIE DE L'ÉTUDIANT · MBANZA-NGUNGU (EX-THYSVILLE)</div>
+    <div class="loginLogo">LUO</div>
+    <div class="loginTag">ÉTUDIANT OYÉ · MBANZA-NGUNGU (EX-THYSVILLE)</div>
     <div class="loginHint">Entre ton prénom pour commencer</div>
     <input id="loginName" class="loginInput" type="text" placeholder="Ton prénom…" maxlength="30" autocomplete="off" spellcheck="false" autocapitalize="words">
     <div id="loginContinue" class="loginContinue hidden"></div>
@@ -252,7 +252,7 @@
 </div>
 
 <div id="hud" class="panel">
-  <h1>LUVAKA <span id="ver" style="font-size:10px; color:#7f92ad; font-weight:600; letter-spacing:.5px; vertical-align:middle">v3.0.0</span></h1>
+  <h1>LUO <span id="ver" style="font-size:10px; color:#7f92ad; font-weight:600; letter-spacing:.5px; vertical-align:middle">v3.1.0</span></h1>
   <div class="day" id="clock">Jour 1 — 07:00 · Mbanza-Ngungu</div>
   <div class="stat"><span>📚 Moyenne</span><b id="notes">12,5 / 20</b></div>
   <div class="stat"><span>⚡ Énergie</span><span class="bar"><i id="energyBar" style="width:85%"></i></span></div>
@@ -327,7 +327,7 @@
 
 <div class="overlay left" id="menu">
   <div class="menuCard">
-    <h2>LUVAKA</h2>
+    <h2>LUO ÉTUDIANT OYÉ</h2>
     <div class="sub">UNE JOURNÉE D'ÉTUDIANT · MBANZA-NGUNGU (EX-THYSVILLE), KONGO-CENTRAL</div>
     <p>Tu es étudiant à Mbanza-Ngungu, ville des deux universités — l'<b>ISP</b> (1981) et l'<b>Université Kongo</b>.
        Il faut arriver à l'heure partout, avec une énergie qui fond et un argent de poche qui rétrécit.
@@ -507,11 +507,11 @@ function detectTier(){
   let t;
   if (touch) t = (cores >= 8 && mem >= 6) ? 'medium' : 'low';
   else t = (cores >= 8 && mem >= 8) ? 'high' : 'medium';
-  const saved = LS.get('luvaka.autoTier');           // palier deja reduit automatiquement
+  const saved = LS.get('luo.autoTier');           // palier deja reduit automatiquement
   if (saved && TIER_ORDER.includes(saved) && TIER_ORDER.indexOf(saved) < TIER_ORDER.indexOf(t)) t = saved;
   return t;
 }
-let qualityMode = new URLSearchParams(location.search).get('q') || LS.get('luvaka.quality') || 'auto';
+let qualityMode = new URLSearchParams(location.search).get('q') || LS.get('luo.quality') || 'auto';
 if (qualityMode !== 'auto' && !TIER_ORDER.includes(qualityMode)) qualityMode = 'auto';
 let tier = qualityMode === 'auto' ? detectTier() : qualityMode;
 const bootAA = QUALITY[tier].aa;                      // l'anti-crenelage ne change qu'au rechargement
@@ -2879,7 +2879,8 @@ const day = [
 const S = {};
 /* ===== AUTH / SAUVEGARDE (PWA) ===== */
 const SAVE_V = 1;
-const SAVE_KEY = n => 'luvaka.save.' + n.toLowerCase().trim().replace(/\s+/g, '_');
+const SAVE_KEY = n => 'luo.save.' + n.toLowerCase().trim().replace(/\s+/g, '_');
+const LEGACY_SAVE_KEY = n => 'luvaka.save.' + n.toLowerCase().trim().replace(/\s+/g, '_');
 function snapshotGame(ch){
   return { v: SAVE_V, name: S.playerName, charIdx: ch,
            objIdx: S.objIdx, objTime: S.objTime, lateShown: S.lateShown,
@@ -2893,7 +2894,8 @@ function saveGame(){
 }
 function loadGame(name){
   try {
-    const raw = localStorage.getItem(SAVE_KEY(name));
+    let raw = localStorage.getItem(SAVE_KEY(name));
+    if (!raw) raw = localStorage.getItem(LEGACY_SAVE_KEY(name));   // ancien nom
     if (!raw) return null;
     const s = JSON.parse(raw);
     return (s && s.v === SAVE_V) ? s : null;
@@ -3721,8 +3723,8 @@ $('loginPlay').onclick = () => {
     saveGame();              // nouvelle partie : on enregistre le nom
   }
   S.loggedIn = true;
-  localStorage.setItem('luvaka.player', name);
-  hideOverlay($('login'));
+  localStorage.setItem('luo.player', name);
+  hideOverlays();
   showOverlay($('menu'));
 };
 $('loginNew').onclick = () => {
@@ -3932,8 +3934,8 @@ function updateQualityUI(){
 }
 function setQualityMode(m){
   qualityMode = m;
-  LS.set('luvaka.quality', m);
-  if (m === 'auto') LS.del('luvaka.autoTier');
+  LS.set('luo.quality', m);
+  if (m === 'auto') LS.del('luo.autoTier');
   tier = m === 'auto' ? detectTier() : m;
   applyQuality();
 }
@@ -3942,7 +3944,7 @@ function downgradeTier(){                  // mode Auto : on baisse d'un palier 
   const i = TIER_ORDER.indexOf(tier);
   if (i <= 0) return false;
   tier = TIER_ORDER[i - 1];
-  LS.set('luvaka.autoTier', tier);
+  LS.set('luo.autoTier', tier);
   applyQuality();
   return true;
 }
