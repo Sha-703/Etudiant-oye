@@ -1,0 +1,16 @@
+{
+  "name": "Luvaka — La vie de l'étudiant à Mbanza-Ngungu",
+  "short_name": "Luvaka",
+  "description": "Jeu 3D vocal sur la vie d'un étudiant à Mbanza-Ngungu (Kongo-Central, RDC) : cours à l'ISP et à l'Université Kongo, voix, vrai monde en 3D d'après OpenStreetMap.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#0a0e14",
+  "background_color": "#06080e",
+  "lang": "fr",
+  "categories": ["games", "education"],
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
