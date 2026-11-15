@@ -2540,16 +2540,16 @@ scene.add(treeMesh);
 /* --- marqueur d'objectif --- */
 const marker = new THREE.Group();
 const beam = new THREE.Mesh(
-  new THREE.CylinderGeometry(4, 4, 70, 18, 1, true),
-  new THREE.MeshBasicMaterial({ color: 0x4fd1c5, transparent: true, opacity: 0.22, side: THREE.DoubleSide, depthWrite: false })
+  new THREE.CylinderGeometry(6, 6, 70, 18, 1, true),
+  new THREE.MeshBasicMaterial({ color: 0xffe135, transparent: true, opacity: 0.6, side: THREE.DoubleSide, depthWrite: false })
 );
 beam.position.y = 35;
 marker.add(beam);
 const ring = new THREE.Mesh(
-  new THREE.RingGeometry(4.5, 6, 32),
-  new THREE.MeshBasicMaterial({ color: 0x4fd1c5, transparent: true, opacity: 0.85, side: THREE.DoubleSide })
+  new THREE.RingGeometry(6, 9, 48),
+  new THREE.MeshBasicMaterial({ color: 0xffe135, transparent: true, opacity: 0.9, side: THREE.DoubleSide })
 );
-ring.rotation.x = -Math.PI/2; ring.position.y = 0.2;
+ring.rotation.x = -Math.PI/2; ring.position.y = 13;
 marker.add(ring);
 scene.add(marker);
 
