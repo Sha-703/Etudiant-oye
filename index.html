@@ -305,7 +305,7 @@
   <img class="loginBg" src="bg-login.jpg" alt="ROND-POINT ISP à Mbanza-Ngungu">
   <div class="loginShade"></div>
   <div class="loginCard">
-    <div class="loginLogo">LUO</div>
+    <div class="loginLogo">ÉTUDIANT<br>OYÉ</div>
     <div class="loginTag">ÉTUDIANT OYÉ · MBANZA-NGUNGU (EX-THYSVILLE)</div>
     <div class="loginHint">Entre ton prénom pour commencer</div>
     <input id="loginName" class="loginInput" type="text" placeholder="Ton prénom…" maxlength="30" autocomplete="off" spellcheck="false" autocapitalize="words">
@@ -321,7 +321,7 @@
 </div>
 
 <div id="hud" class="panel hidden">
-  <h1>LUO <span id="ver" style="font-size:10px; color:#7f92ad; font-weight:600; letter-spacing:.5px; vertical-align:middle">v3.6.0</span></h1>
+  <h1>ÉTUDIANT OYÉ <span id="ver" style="font-size:10px; color:#7f92ad; font-weight:600; letter-spacing:.5px; vertical-align:middle">v3.7.0</span></h1>
   <div class="day" id="clock">Jour 1 — 07:00 · Mbanza-Ngungu</div>
   <div class="stat"><span>📚 Moyenne</span><b id="notes">12,5 / 20</b></div>
   <div class="stat"><span>⚡ Énergie</span><span class="bar"><i id="energyBar" style="width:85%"></i></span></div>
@@ -398,7 +398,7 @@
 
 <div class="overlay left" id="menu">
   <div class="menuCard">
-    <h2>LUO ÉTUDIANT OYÉ</h2>
+    <h2>ÉTUDIANT OYÉ</h2>
     <div class="sub">UNE JOURNÉE D'ÉTUDIANT · MBANZA-NGUNGU (EX-THYSVILLE), KONGO-CENTRAL</div>
     <p>Tu es étudiant à Mbanza-Ngungu, ville des deux universités — l'<b>ISP</b> (1981) et l'<b>Université Kongo</b>.
        Il faut arriver à l'heure partout, avec une énergie qui fond et un argent de poche qui rétrécit.
@@ -3115,9 +3115,14 @@ function hideOverlays(){
 }
 
 function startGame(){
-  resetGame();
+  const resume = S._resume || null;
+  if (!resume) resetGame();                 // nouvelle partie
   hideOverlays();
   $('dialog').classList.add('hidden');
+  if (resume){                              // reprise d'une sauvegarde
+    applySave(resume);
+    S._resume = null;
+  }
   applyObjectiveUI();
   updateHud();
   S.state = 'playing';
@@ -3485,7 +3490,7 @@ for (const p of D.pois){
   cMinZ = Math.min(cMinZ, p.z); cMaxZ = Math.max(cMaxZ, p.z);
 }
 cMinX -= 500; cMaxX += 500; cMinZ -= 500; cMaxZ += 500;
-const MMZ = 4.5;                                        // ~350 m visibles dans le cercle, style GTA
+const MMZ = 6;                                          // zoom ville serre, style GPS
 const mmsW = mm.width * MMZ, mmsH = mm.height * MMZ;
 const mmScale = Math.min(mmsW / (cMaxX-cMinX), mmsH / (cMaxZ-cMinZ));
 const mmOX = (mmsW - (cMaxX-cMinX)*mmScale)/2, mmOZ = (mmsH - (cMaxZ-cMinZ)*mmScale)/2;
@@ -3788,17 +3793,15 @@ $('loginPlay').onclick = () => {
   const s = loadGame(name);
   if (s){
     saveGame();              // sauvegarde nom/jetons avant de reprendre
-    applySave(s);            // reprend : notes, énergie, argent, objectif, position, personnage
-    S.state = 'menu';
-    applyObjectiveUI();
-    updateHud();
+    S._resume = s;           // reprise appliquée après resetGame dans startGame
   } else {
     saveGame();              // nouvelle partie : on enregistre le nom
   }
   S.loggedIn = true;
   localStorage.setItem('luo.player', name);
+  localStorage.setItem('luo.quality', 'auto');
   hideOverlays();
-  showOverlay($('menu'));
+  startGame();                      // direct au jeu — pas de choix de personnage/qualité ici
 };
 $('loginNew').onclick = () => {
   const name = $('loginName').value.trim();
@@ -4323,6 +4326,10 @@ loadModelLibrary();
 /* parametres de test : ?auto=1 (demarre), ?at=x,z[,yaw] (teleporte), ?char=N (personnage) */
 {
   const qs = new URLSearchParams(location.search);
+  if (qs.has('nohud')){
+    // cache le HUD (captures et "capture d'ecran pretes a partager")
+    ['hud','objcard','minimapWrap','voice','help','installBtn'].forEach(id => { const el = document.getElementById(id); if (el) el.classList.add('hidden'); });
+  }
   if (qs.has('auto')){
     // on attend que le monde soit charge (bouton JOUER actif) puis on demarre
     const waitWorld = () => {
