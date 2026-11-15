@@ -321,7 +321,7 @@
 </div>
 
 <div id="hud" class="panel hidden">
-  <h1>ÉTUDIANT OYÉ <span id="ver" style="font-size:10px; color:#7f92ad; font-weight:600; letter-spacing:.5px; vertical-align:middle">v3.9.0</span></h1>
+  <h1>ÉTUDIANT OYÉ <span id="ver" style="font-size:10px; color:#7f92ad; font-weight:600; letter-spacing:.5px; vertical-align:middle">v4.0.0</span></h1>
   <div class="day" id="clock">Jour 1 — 07:00 · Mbanza-Ngungu</div>
   <div class="stat"><span>📚 Moyenne</span><b id="notes">12,5 / 20</b></div>
   <div class="stat"><span>⚡ Énergie</span><span class="bar"><i id="energyBar" style="width:85%"></i></span></div>
@@ -568,9 +568,9 @@ scene.fog = new THREE.Fog(SKY.morning.clone(), 170, 3600);
    shadowMap = taille de la carte d'ombres, std = materiaux realistes (PBR) + reflets,
    walkers/crowd = nb de pietons, rain = nb de gouttes, hemi/exposure = lumiere. */
 const QUALITY = {
-  low:    { pr:1,   aa:false, shadow:0, shadowMap:1024, std:false, walkers:10, crowd:3,  rain:500,  hemi:0.95, exposure:1.15 },
-  medium: { pr:1.5, aa:true,  shadow:1, shadowMap:1024, std:false, walkers:20, crowd:8,  rain:900,  hemi:0.95, exposure:1.15 },
-  high:   { pr:2,   aa:true,  shadow:1, shadowMap:2048, std:true,  walkers:36, crowd:14, rain:1400, hemi:0.70, exposure:1.05 },
+  low:    { pr:1,   aa:false, shadow:0, shadowMap:1024, std:false, walkers:20, crowd:6,  rain:500,  hemi:0.95, exposure:1.15 },
+  medium: { pr:1.5, aa:true,  shadow:1, shadowMap:1024, std:false, walkers:40, crowd:16, rain:900,  hemi:0.95, exposure:1.15 },
+  high:   { pr:2,   aa:true,  shadow:1, shadowMap:2048, std:true,  walkers:70, crowd:28, rain:1400, hemi:0.70, exposure:1.05 },
 };
 const TIER_ORDER = ['low', 'medium', 'high'];
 const TIER_LABEL = { low:'Bas', medium:'Moyen', high:'Haut' };
@@ -2786,6 +2786,7 @@ function pathPos(pts, t){
 const walkRoads = buildRoads.filter(r => r.pts.length > 4 && r.w >= 7);
 // routes du campus ISP (rayon 500m autour du ROND-POINT) : on y fait marcher des étudiants en couleur
 const campusRoads = walkRoads.filter(r => r.pts.some(p => Math.hypot(p[0]-783, p[1]-1131) < 500));
+const rn1Roads = walkRoads.filter(r => r.type === 'trunk' || /^Avenue Mobutu|^Avenue Kasa-Vubu/i.test(r.name||''));
 let walkersActive = 0;
 let campusWalkersSpawned = false;
 function spawnWalkerOnRoad(r){
@@ -2798,6 +2799,10 @@ function spawnWalkerOnRoad(r){
 function spawnCampusWalkers(n){
   if (!campusRoads.length) return;
   for (let i = 0; i < n; i++) spawnWalkerOnRoad(campusRoads[i % campusRoads.length]);
+}
+function spawnRn1Walkers(n){
+  if (!rn1Roads.length) return;
+  for (let i = 0; i < n; i++) spawnWalkerOnRoad(rn1Roads[i % rn1Roads.length]);
 }
 function spawnWalker(){
   const r = walkRoads[Math.floor(Math.random()*walkRoads.length)];
@@ -4006,7 +4011,8 @@ function applyQuality(){
     ensureCrowd('ROND-POINT ISP', crowdISP, Math.max(2, Math.round(Q.crowd * 0.8)));
     if (!campusWalkersSpawned){
       campusWalkersSpawned = true;
-      spawnCampusWalkers(5);                // quelques étudiants colorés sur les avenues du campus
+      spawnCampusWalkers(15);               // étudiants colorés sur les avenues du campus ISP
+      spawnRn1Walkers(8);                   // piétons sur la RN1
     }
     walkersActive = walkers.length;
     walkers.forEach(w => { w.g.visible = true; });
