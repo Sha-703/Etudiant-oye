@@ -321,7 +321,7 @@
 </div>
 
 <div id="hud" class="panel hidden">
-  <h1>ÉTUDIANT OYÉ <span id="ver" style="font-size:10px; color:#7f92ad; font-weight:600; letter-spacing:.5px; vertical-align:middle">v1.0.0</span></h1>
+  <h1>ÉTUDIANT OYÉ <span id="ver" style="font-size:10px; color:#7f92ad; font-weight:600; letter-spacing:.5px; vertical-align:middle">v1.1.0</span></h1>
   <div class="day" id="clock">Jour 1 — 07:00 · Mbanza-Ngungu</div>
   <div class="stat"><span>📚 Moyenne</span><b id="notes">12,5 / 20</b></div>
   <div class="stat"><span>⚡ Énergie</span><span class="bar"><i id="energyBar" style="width:85%"></i></span></div>
@@ -1514,7 +1514,123 @@ const signA = makeArrays();
 const bldRects = [];
 const WALLS = ['#b4653f','#c98d63','#cfa878','#ece5d6','#d9b47a','#b8703f','#e0d5c0','#a85a38','#d8c8a8','#c2734a']; // brique, banco, blanc delave
 const ROOFS = ['#b9c0c6','#9aa3ab','#8a6a52','#6d8494','#a06a4e','#7f878e','#5f7f92','#b08060'];  // tole ondulee
+/* index spatial de batiments : polygone exact + grille pour la vitesse */
 const BLDS = D.blds || [];
+const buildingGrid = new Map();
+const GRID_CELL = 25;                                 // 25 m par cellule
+const gridKey = (x, z) => ((x / GRID_CELL) | 0) + ',' + ((z / GRID_CELL) | 0);
+for (let bi = 0; bi < BLDS.length; bi++){
+  const poly = BLDS[bi];
+  const n = poly.length / 2;
+  if (n < 3) continue;
+  let ax = 1e9, bx = -1e9, az = 1e9, bz = -1e9;
+  for (let i = 0; i < n; i++){
+    ax = Math.min(ax, poly[i*2]); bx = Math.max(bx, poly[i*2]);
+    az = Math.min(az, poly[i*2+1]); bz = Math.max(bz, poly[i*2+1]);
+  }
+  const cx = (ax + bx) / 2, cz = (az + bz) / 2;
+  const bw = bx - ax, bd = bz - az;
+  if (bw < 1.2 || bd < 1.2) continue;
+  // indexer dans chaque cellule couverte par le polygone
+  const x0 = Math.floor(ax / GRID_CELL), x1 = Math.floor(bx / GRID_CELL);
+  const z0 = Math.floor(az / GRID_CELL), z1 = Math.floor(bz / GRID_CELL);
+  for (let gx = x0; gx <= x1; gx++){
+    for (let gz = z0; gz <= z1; gz++){
+      const key = gx + ',' + gz;
+      if (!buildingGrid.has(key)) buildingGrid.set(key, []);
+      buildingGrid.get(key).push({ poly, n, ax, bx, az, bz });
+    }
+  }
+}
+function pointInBuilding(x, z, m){
+  m = m || 0;
+  const gx = Math.floor(x / GRID_CELL), gz = Math.floor(z / GRID_CELL);
+  for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++){
+    const cell = buildingGrid.get((gx + dx) + ',' + (gz + dz));
+    if (!cell) continue;
+    for (const bld of cell){
+      // test rapide AABB
+      if (x < bld.ax - m || x > bld.bx + m || z < bld.az - m || z > bld.bz + m) continue;
+      // test polygone point-in-polygon
+      const poly = bld.poly, n = bld.n;
+      let inside = false;
+      for (let i = 0, j = n - 1; i < n; j = i++){
+        const xi = poly[i*2], zi = poly[i*2+1];
+        const xj = poly[j*2], zj = poly[j*2+1];
+        if ((zi > z) !== (zj > z) && x < (xj - xi) * (z - zi) / (zj - zi) + xi) inside = !inside;
+      }
+      if (inside) return true;
+      // distance aux aretes
+      let minD = Infinity;
+      for (let i = 0, j = n - 1; i < n; j = i++){
+        const ax = poly[i*2], az = poly[i*2+1];
+        const bx = poly[j*2], bz = poly[j*2+1];
+        const ddx = bx - ax, ddz = bz - az;
+        const L2 = ddx*ddx + ddz*ddz;
+        let t = L2 ? ((x - ax) * ddx + (z - az) * ddz) / L2 : 0;
+        t = Math.max(0, Math.min(1, t));
+        const d = Math.hypot(ax + ddx*t - x, az + ddz*t - z);
+        if (d < minD) minD = d;
+      }
+      if (minD < m) return true;
+    }
+  }
+  return false;
+}
+function distToBuildingEdge(x, z){
+  const gx = Math.floor(x / GRID_CELL), gz = Math.floor(z / GRID_CELL);
+  let minD = Infinity;
+  for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++){
+    const cell = buildingGrid.get((gx + dx) + ',' + (gz + dz));
+    if (!cell) continue;
+    for (const bld of cell){
+      if (x < bld.ax - 50 || x > bld.bx + 50 || z < bld.az - 50 || z > bld.bz + 50) continue;
+      const poly = bld.poly, n = bld.n;
+      for (let i = 0, j = n - 1; i < n; j = i++){
+        const ax = poly[i*2], az = poly[i*2+1];
+        const bx = poly[j*2], bz = poly[j*2+1];
+        const ddx = bx - ax, ddz = bz - az;
+        const L2 = ddx*ddx + ddz*ddz;
+        let t = L2 ? ((x - ax) * ddx + (z - az) * ddz) / L2 : 0;
+        t = Math.max(0, Math.min(1, t));
+        const d = Math.hypot(ax + ddx*t - x, az + ddz*t - z);
+        if (d < minD) minD = d;
+      }
+    }
+  }
+  return minD === Infinity ? -1 : minD;
+}
+function buildingNear(x, z, m){
+  const gx = Math.floor(x / GRID_CELL), gz = Math.floor(z / GRID_CELL);
+  for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++){
+    const cell = buildingGrid.get((gx + dx) + ',' + (gz + dz));
+    if (!cell) continue;
+    for (const bld of cell){
+      if (x < bld.ax - m || x > bld.bx + m || z < bld.az - m || z > bld.bz + m) continue;
+      const poly = bld.poly, n = bld.n;
+      let inside = false;
+      for (let i = 0, j = n - 1; i < n; j = i++){
+        const xi = poly[i*2], zi = poly[i*2+1];
+        const xj = poly[j*2], zj = poly[j*2+1];
+        if ((zi > z) !== (zj > z) && x < (xj - xi) * (z - zi) / (zj - zi) + xi) inside = !inside;
+      }
+      if (inside) return true;
+      let minD = Infinity;
+      for (let i = 0, j = n - 1; i < n; j = i++){
+        const ax = poly[i*2], az = poly[i*2+1];
+        const bx = poly[j*2], bz = poly[j*2+1];
+        const ddx = bx - ax, ddz = bz - az;
+        const L2 = ddx*ddx + ddz*ddz;
+        let t = L2 ? ((x - ax) * ddx + (z - az) * ddz) / L2 : 0;
+        t = Math.max(0, Math.min(1, t));
+        const d = Math.hypot(ax + ddx*t - x, az + ddz*t - z);
+        if (d < minD) minD = d;
+      }
+      if (minD < m) return true;
+    }
+  }
+  return false;
+}
 const buildRoads = D.roads.filter(r => MAJOR.has(r.type) && r.type !== 'pedestrian');
 
 const majPts = [];                                   // points des avenues (pour poser les enseignes)
@@ -1557,7 +1673,9 @@ for (const poly of BLDS){
   const lmDef = LANDMARK_DEFS.find(l => !l.done && Math.hypot(cx - l.x, cz - l.z) < l.tol);
   if (lmDef){                                        // batiment modelise a part : on saute le semis generique
     lmDef.done = true; LM_FOUND.push({ def: lmDef, P });
-    bldRects.push({ x:(Math.min(...xs)+Math.max(...xs))/2, z:(Math.min(...zs)+Math.max(...zs))/2, w:bw, d:bd });
+    // collision reduite — le modele est plus compact que l'empreinte OSM
+    const isImmacule = lmDef.style === 'immacule';
+    bldRects.push({ x: cx, z: cz, w: isImmacule ? 30 : 40, d: isImmacule ? 16 : 36 });
     continue;
   }
   // hauteur : 1 etage le plus souvent, 2 etages parfois
@@ -3317,19 +3435,26 @@ function updatePlayer(dt){
     const f = forwardVec();
     S.pos.x += f.x * S.speed * dt;
     S.pos.z += f.z * S.speed * dt;
-    // collisions batiments
+    // collisions batiments — precise (polygone exact), plus de AABB
     const R = 0.55;
     for (const cc of SOLID_CIRCLES){                   // ilots des ronds-points
       const cdx = S.pos.x - cc.x, cdz = S.pos.z - cc.z, cd = Math.hypot(cdx, cdz), lim = cc.r + R;
       if (cd < lim){ const k = lim / (cd || 1); S.pos.x = cc.x + cdx * k; S.pos.z = cc.z + cdz * k; }
     }
-    for (const b of bldRects){
-      const hx = b.w/2 + R, hz = b.d/2 + R;
-      const dx = S.pos.x - b.x, dz = S.pos.z - b.z;
-      if (Math.abs(dx) < hx && Math.abs(dz) < hz){
-        const px = hx - Math.abs(dx), pz = hz - Math.abs(dz);
-        if (px < pz) S.pos.x = b.x + Math.sign(dx || 1) * hx;
-        else S.pos.z = b.z + Math.sign(dz || 1) * hz;
+    if (buildingNear(S.pos.x, S.pos.z, R)){
+      // pousser le joueur hors du bâtiment (vers le bord le plus proche)
+      const d = distToBuildingEdge(S.pos.x, S.pos.z);
+      if (d > 0 && d < R){
+        // reculer de R - d mètres sur la normale la plus proche
+        const nx = S.pos.x, nz = S.pos.z;
+        const step = R - d + 0.01;
+        // direction de la normale : on teste 4 directions cardinales
+        const dirs = [[1,0],[ -1,0],[0,1],[0,-1]];
+        for (const [dx, dz] of dirs){
+          if (!buildingNear(nx + dx*step, nz + dz*step, R)){
+            S.pos.x = nx + dx*step; S.pos.z = nz + dz*step; break;
+          }
+        }
       }
     }
     for (const b of hillObstacles){                    // collines : on ne les traverse pas
@@ -4337,6 +4462,35 @@ loadModelLibrary();
         }
         console.log('GLB OK :', pv.file, '(stationné)');
       });
+    }
+    /* voitures & moto garées aux abords du ROND-POINT ISP */
+    const ispRound = ROUNDABOUTS.find(r => Math.hypot(r.x - 782, r.z - 1127) < 30);
+    if (ispRound){
+      const armSpots = ispRound.arms.slice(0, 3);
+      for (let i = 0; i < armSpots.length; i++){
+        const arm = armSpots[i];
+        const dist = ispRound.Rout + 6 + Math.random() * 10;
+        const px = ispRound.x + Math.cos(arm.ang) * dist;
+        const pz = ispRound.z + Math.sin(arm.ang) * dist;
+        const nx = -Math.sin(arm.ang), nz = Math.cos(arm.ang);
+        const off = (arm.w/2 + 1.0) * (Math.random() < .5 ? 1 : -1);
+        // simple box car pour les bras du rond-point (elles sont visibles tout le temps)
+        const car = makeCar();
+        car.position.set(px + nx*off, 0, pz + nz*off);
+        car.rotation.y = arm.ang + (Math.random() < .5 ? 0 : Math.PI);
+        scene.add(car);
+      }
+      // une moto devant le portail ISP
+      const moto = makeMoto();
+      const motoAngle = ispRound.arms[0]?.ang || 0;
+      const md = ispRound.Rout + 14;
+      moto.position.set(ispRound.x + Math.cos(motoAngle) * md, 0, ispRound.z + Math.sin(motoAngle) * md);
+      moto.rotation.y = motoAngle;
+      const rider = makePedestrian().g;
+      rider.position.set(0, 0.38, 0);
+      moto.add(rider);
+      scene.add(moto);
+      console.log('ROND-POINT ISP : 3 voitures + 1 moto stationnées');
     }
     /* motos stationnées avec pilote (Option A : casual_man sur makeMoto) */
     const motoRoads = walkRoads.filter(r => r.w >= 7).slice(0, 14);
