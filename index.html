@@ -321,7 +321,7 @@
 </div>
 
 <div id="hud" class="panel hidden">
-  <h1>ÉTUDIANT OYÉ <span id="ver" style="font-size:10px; color:#7f92ad; font-weight:600; letter-spacing:.5px; vertical-align:middle">v3.7.0</span></h1>
+  <h1>ÉTUDIANT OYÉ <span id="ver" style="font-size:10px; color:#7f92ad; font-weight:600; letter-spacing:.5px; vertical-align:middle">v3.8.0</span></h1>
   <div class="day" id="clock">Jour 1 — 07:00 · Mbanza-Ngungu</div>
   <div class="stat"><span>📚 Moyenne</span><b id="notes">12,5 / 20</b></div>
   <div class="stat"><span>⚡ Énergie</span><span class="bar"><i id="energyBar" style="width:85%"></i></span></div>
@@ -2784,14 +2784,24 @@ function pathPos(pts, t){
   return { x: last[0], z: last[1], ang: 0 };
 }
 const walkRoads = buildRoads.filter(r => r.pts.length > 4 && r.w >= 7);
+// routes du campus ISP (rayon 500m autour du ROND-POINT) : on y fait marcher des étudiants en couleur
+const campusRoads = walkRoads.filter(r => r.pts.some(p => Math.hypot(p[0]-783, p[1]-1131) < 500));
 let walkersActive = 0;
-function spawnWalker(){
-  const r = walkRoads[Math.floor(Math.random()*walkRoads.length)];
+let campusWalkersSpawned = false;
+function spawnWalkerOnRoad(r){
   const ped = makePedestrian(), g = ped.g;
   g.traverse(o => { if (o.isMesh) o.castShadow = true; });
   scene.add(g);
   if (ped.mixer) refreshMaterials(g);
   walkers.push({ g, mixer: ped.mixer, pts: r.pts, t: Math.random(), dir: Math.random()<.5?1:-1, sp: 0.00004+Math.random()*0.00004, off: r.w/2+1.2 });
+}
+function spawnCampusWalkers(n){
+  if (!campusRoads.length) return;
+  for (let i = 0; i < n; i++) spawnWalkerOnRoad(campusRoads[i % campusRoads.length]);
+}
+function spawnWalker(){
+  const r = walkRoads[Math.floor(Math.random()*walkRoads.length)];
+  spawnWalkerOnRoad(r);
 }
 function ensureWalkers(n){ while (walkers.length < n) spawnWalker(); }
 function makeCar(){
@@ -3994,8 +4004,12 @@ function applyQuality(){
     ensureWalkers(Q.walkers);
     ensureCrowd('Marché central', crowd, Q.crowd);
     ensureCrowd('ROND-POINT ISP', crowdISP, Math.max(2, Math.round(Q.crowd * 0.8)));
-    walkersActive = Q.walkers;
-    walkers.forEach((w, i) => { w.g.visible = i < Q.walkers; });
+    if (!campusWalkersSpawned){
+      campusWalkersSpawned = true;
+      spawnCampusWalkers(5);                // quelques étudiants colorés sur les avenues du campus
+    }
+    walkersActive = walkers.length;
+    walkers.forEach(w => { w.g.visible = true; });
     crowd.forEach((g, i) => { g.visible = i < Q.crowd; });
     crowdISP.forEach((g, i) => { g.visible = i < Math.max(2, Math.round(Q.crowd * 0.8)); });
   }
