@@ -86,8 +86,11 @@
   .overlay.left{ background:rgba(3,5,10,.42); align-items:flex-start; justify-content:center; padding-left:3vw; }
 
   /* ===== ÉCRAN DE CONNEXION ===== */
-  .loginFull{ background:linear-gradient(180deg, rgba(6,8,14,.25) 0%, rgba(6,8,14,.55) 45%, rgba(6,8,14,.93) 78%, rgba(6,8,14,.98) 100%); z-index:30; justify-content:flex-end; padding-bottom:7vh; }
-  .loginCard{ display:flex; flex-direction:column; align-items:center; gap:0; }
+  .loginFull{ background:#06080e; overflow:hidden; z-index:30; justify-content:flex-end; padding-bottom:6vh; }
+  .loginBg{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:center 32%; }
+  .loginShade{ position:absolute; inset:0;
+               background:linear-gradient(180deg, rgba(6,8,14,.12) 0%, rgba(6,8,14,.38) 40%, rgba(6,8,14,.88) 78%, rgba(6,8,14,.97) 100%); }
+  .loginCard{ position:relative; z-index:1; display:flex; flex-direction:column; align-items:center; gap:0; }
   .loginLogo{ font-size:54px; font-weight:800; letter-spacing:14px; color:#fff;
               text-shadow:0 4px 30px rgba(12,221,177,.35), 0 2px 12px rgba(0,0,0,.9); }
   .loginTag{ font-size:10px; letter-spacing:3.5px; color:var(--gold); text-transform:uppercase; margin:6px 0 26px;
@@ -104,6 +107,10 @@
              box-shadow:0 8px 28px rgba(240,180,41,.45), inset 0 1px 0 rgba(255,255,255,.6); }
   .loginBtn:hover{ filter:brightness(1.08); transform:translateY(-1px); }
   .loginBtn:active{ transform:translateY(1px); }
+  .loginBtn[disabled]{ opacity:.4; cursor:not-allowed; filter:grayscale(.6); box-shadow:none; transform:none; }
+  .loadBarWrap{ width:min(340px,86vw); height:4px; border-radius:2px; overflow:hidden; margin-top:14px; background:rgba(255,255,255,.18); }
+  .loadBar{ height:100%; width:0%; background:linear-gradient(90deg,#4fd1c5,#ecc94b); transition:width .12s linear; }
+  .loadTxt{ font-size:9.5px; letter-spacing:2.2px; color:#9be0d7; text-transform:uppercase; margin-top:6px; min-height:14px; }
   .loginRow{ display:flex; align-items:center; gap:14px; margin-top:14px; }
   .loginNew{ background:transparent; border:none; color:#9be0d7; font-size:12px; letter-spacing:.3px;
              text-decoration:underline; cursor:pointer; padding:8px 4px; }
@@ -295,6 +302,8 @@
 
 <!-- ===== ÉCRAN DE CONNEXION (PWA) ===== -->
 <div class="overlay loginFull" id="login">
+  <img class="loginBg" src="bg-login.jpg" alt="ROND-POINT ISP à Mbanza-Ngungu">
+  <div class="loginShade"></div>
   <div class="loginCard">
     <div class="loginLogo">LUO</div>
     <div class="loginTag">ÉTUDIANT OYÉ · MBANZA-NGUNGU (EX-THYSVILLE)</div>
@@ -303,14 +312,16 @@
     <div id="loginContinue" class="loginContinue hidden"></div>
     <div class="loginRow">
       <button id="loginNew" class="loginNew hidden" title="Recommencer depuis le début">Nouvelle partie</button>
-      <button id="loginPlay" class="loginBtn">JOUER ▸</button>
+      <button id="loginPlay" class="loginBtn" disabled>JOUER ▸</button>
     </div>
+    <div id="loadBarWrap" class="loadBarWrap"><div id="loadBar" class="loadBar"></div></div>
+    <div id="loadTxt" class="loadTxt">Chargement du monde… 0%</div>
     <div class="loginFoot">Ta progression sera sauvegardée sur cet appareil</div>
   </div>
 </div>
 
-<div id="hud" class="panel">
-  <h1>LUO <span id="ver" style="font-size:10px; color:#7f92ad; font-weight:600; letter-spacing:.5px; vertical-align:middle">v3.4.0</span></h1>
+<div id="hud" class="panel hidden">
+  <h1>LUO <span id="ver" style="font-size:10px; color:#7f92ad; font-weight:600; letter-spacing:.5px; vertical-align:middle">v3.6.0</span></h1>
   <div class="day" id="clock">Jour 1 — 07:00 · Mbanza-Ngungu</div>
   <div class="stat"><span>📚 Moyenne</span><b id="notes">12,5 / 20</b></div>
   <div class="stat"><span>⚡ Énergie</span><span class="bar"><i id="energyBar" style="width:85%"></i></span></div>
@@ -318,7 +329,7 @@
   <div class="stat"><span>🌧️ Temps</span><b id="weather">Matin brumeux</b></div>
 </div>
 
-<div id="objcard" class="panel">
+<div id="objcard" class="panel hidden">
   <div class="kicker">Objectif en cours</div>
   <h2 id="objTitle">—</h2>
   <div class="hint" id="objHint">—</div>
@@ -329,14 +340,14 @@
   <div><span id="arrow">▲</span></div>
 </div>
 
-<div id="minimapWrap" class="panel">
+<div id="minimapWrap" class="panel hidden">
   <!-- Donnees cartographiques © contributeurs OpenStreetMap (ODbL) · Imagerie satellite © Esri, Maxar -->
   <canvas id="minimap" width="210" height="210"></canvas>
 </div>
 
 <div id="streetName"><div id="streetTxt"></div><div id="streetSub">Mbanza-Ngungu</div><div id="streetPoi"></div></div>
 
-<div id="voice" class="panel">
+<div id="voice" class="panel hidden">
   <h2>Commande vocale</h2>
   <div id="status"><span id="dot"></span><span id="statusText">Micro désactivé</span></div>
   <div id="interim">—</div>
@@ -347,7 +358,7 @@
 
 <button id="installBtn" class="installBtn hidden" aria-label="Installer l'application sur votre appareil">⬇ Installer l'app</button>
 
-<div id="help" class="panel">
+<div id="help" class="panel hidden">
   <h2>Commandes</h2>
   <table>
     <tr><td>« Avance »</td><td>marcher</td></tr>
@@ -534,6 +545,13 @@ const ROUNDABOUTS = [];
 const $ = id => document.getElementById(id);
 
 /* ============================ SCENE ============================ */
+const frame = () => new Promise(r => requestAnimationFrame(r));     // laisse le navigateur respirer entre les blocs
+const setBoot = (pct, txt) => {
+  const bar = document.getElementById('loadBar');
+  const lab = document.getElementById('loadTxt');
+  if (bar) bar.style.width = pct + '%';
+  if (lab) lab.textContent = txt + ' — ' + pct + '%';
+};
 const scene = new THREE.Scene();
 const SKY = {
   morning: new THREE.Color(0x9fb6c9),
@@ -819,6 +837,7 @@ function addSign(arr, cx, cz, w, h, yb, u, n, lzFace, tile, cols, rows){
   arr.idx.push(base, base+1, base+2, base, base+2, base+3);
 }
 
+(async function bootWorld(){
 /* ============================ WORLD ============================ */
 let minX = 1e9, maxX = -1e9, minZ = 1e9, maxZ = -1e9;
 for (const r of D.roads) for (const p of r.pts){
@@ -843,6 +862,7 @@ function noiseTexture(base, spots, n){
 }
 const groundTex = noiseTexture('#a8613a', ['#b8734a','#96512f','#c08a5a','#8f5a35','#a0653c','#8a8a52','#b58a5a'], 300);
 groundTex.repeat.set(90, 70);
+setBoot(4, 'Texture de la terre…');
 const ground = new THREE.Mesh(
   new THREE.PlaneGeometry(maxX-minX+5200, maxZ-minZ+5200, 160, 160),   // maillage subdivise : un seul gigantesque quad faisait gagner le sol sur les routes (profondeur imprecise)
   new THREE.MeshLambertMaterial({ map: groundTex })
@@ -926,7 +946,6 @@ let satInfo = null;                                  // { cv, px, pz, spanX, spa
       sat.receiveShadow = true;
       scene.add(sat);
       satInfo = { cv, px, pz, spanX, spanZ };
-      if (typeof drawStaticMap === 'function') drawStaticMap();   // la minimap passe sur l'image reelle
       console.log('satellite OK : z' + Z + ', ' + done + '/' + total + ' tuiles, ' + Math.round(spanX) + 'x' + Math.round(spanZ) + ' m');
     };
     for (let ix = 0; ix < nX; ix++){
@@ -988,6 +1007,8 @@ const sunSp = new THREE.Sprite(new THREE.SpriteMaterial({
 sunSp.scale.set(190, 190, 1);
 scene.add(sunSp);
 
+setBoot(12, 'Routes et trottoirs…');
+await frame();
 /* --- routes fusionnees : terre, asphalte, trottoirs, marquage, nids-de-poule --- */
 const markA = makeArrays(), islA = makeArrays(), bumpA = makeArrays();
 const roadA = makeArrays(), trackA = makeArrays(), rutA = makeArrays(), walkA = makeArrays(),
@@ -1353,6 +1374,8 @@ if (wireVerts.length){
   scene.add(new THREE.LineSegments(wireGeom, new THREE.LineBasicMaterial({ color: 0x191c22 })));
 }
 
+setBoot(28, 'Voie ferrée…');
+await frame();
 /* --- chemin de fer Matadi-Kinshasa (vraie ligne OSM) --- */
 if (D.rails && D.rails.length){
   const ballA = makeArrays(), railA = makeArrays(), sleepA = makeArrays();
@@ -1482,6 +1505,8 @@ function buildSignAtlas(){
   return new THREE.CanvasTexture(cv);
 }
 
+setBoot(36, 'Bâtiments réels…');
+await frame();
 /* --- batiments REELS : empreintes OSM aux vraies positions (la vraie ville) --- */
 const bldA = makeArrays();
 const roofA = makeArrays();
@@ -2303,6 +2328,8 @@ if (mktPOI){
   }
 }
 
+setBoot(58, 'Lieux-clés du campus…');
+await frame();
 /* --- arbres (karites, manguiers) --- */
 const treeA = makeArrays();
 function addTree(x, z, s){
@@ -2634,6 +2661,8 @@ function makeStudent(cfg){
   return g;
 }
 
+setBoot(70, 'Arbres et végétation…');
+await frame();
 /* ============================ MODELES .GLB (optionnels) ============================ */
 /* Si le dossier models/ contient un models.json, les personnages .glb remplacent les
    personnages en cubes (joueur + pietons). Sans models.json ou si un fichier manque,
@@ -2708,7 +2737,6 @@ scene.add(player);
 /* Anti-flash : les personnages (heros, pietons, foule) ne s'affichent qu'une fois
    les modeles 3D prets — ou apres 6 s si aucun modele n'est disponible (repli cubes). */
 let castReady = false;
-const castTimer = setTimeout(revealCast, 6000);
 function revealCast(){
   if (castReady) return;
   castReady = true;
@@ -2718,6 +2746,8 @@ function revealCast(){
 }
 player.visible = false;                  // le heros attend son modele 3D
 
+setBoot(78, 'Modèles 3D…');
+await frame();
 /* ============================ VIE AMBIANTE ============================ */
 const walkers = [], cars = [];
 const SHIRTS = [0xd9534f, 0x5bc0de, 0xf0ad4e, 0x8e6bbf, 0x44a17a, 0xe8e2d4];
@@ -2925,9 +2955,9 @@ const day = [
     hint:'Thé + pain avant le premier cours. T’es sur le campus, c’est juste à côté.',
     ok:'Le pain est chaud et la maman te file un supplément de thé. « Etudiants, mangez, la tête va travailler ! »',
     eff:{ energie:25, argent:-1500 } },
-  { poi:'ROND-POINT ISP', at:'08:00', budget:420,
+  { poi:'ISP', at:'08:00', budget:420,
     title:'Cours de 8h à l’ISP',
-    hint:'Amphi 2. Deux quartiers plus loin — prends la route rapide.',
+    hint:'Amphi 2. Le bâtiment de l\'ISP est juste devant le rond-point — entre par la porte.',
     ok:'Tu arrives essoufflé mais à l’heure. Le prof te remarque : « Enfin quelqu’un qui court après le savoir ! »',
     eff:{ notes:0.8 } },
   { poi:'Marché central', at:'12:30', budget:320,
@@ -3019,8 +3049,8 @@ function objTarget(){
   const p = poiByName[obj().poi];
   return p ? new THREE.Vector3(p.x, 0, p.z) : new THREE.Vector3(0,0,0);
 }
-const OBJ_RADIUS = { 'Université Kongo — Nouveau Campus': 40, 'ROND-POINT ISP': 32,
-                     'Marché central': 28, 'Hôpital Nsona-Nkulu': 20, 'Cuisine': 10,
+const OBJ_RADIUS = { 'Université Kongo — Nouveau Campus': 40, 'ISP': 26, 'ROND-POINT ISP': 32,
+                     'Marché central': 28, 'Hôpital Nsona-Nkulu': 20, 'Cuisine': 20,
                      'Résidence — chez l\'oncle': 10, 'Cyber Café MwegISA': 8 };
 function objRadius(){
   return OBJ_RADIUS[obj().poi] || 16;         // rayon d'arrivée par défaut
@@ -3443,6 +3473,8 @@ function updateLife(dt){
   }
 }
 
+setBoot(86, 'Trafic et foule…');
+await frame();
 /* ============================ MINIMAP ============================ */
 const mm = $('minimap'), mctx = mm.getContext('2d');
 /* la carte statique couvre le coeur de ville (bbox POI + marge = zone satellite),
@@ -3539,7 +3571,7 @@ function drawStaticMap(){
     }
   }
   /* noms des lieux-cles sur la carte, comme une vraie carte */
-  const MAP_TAG = { 'ROND-POINT ISP': 'R-P ISP', 'Université Kongo': 'UK', 'Université Kongo — Nouveau Campus': 'UK',
+  const MAP_TAG = { 'ISP': 'ISP', 'ROND-POINT ISP': 'R-P ISP', 'Université Kongo': 'UK', 'Université Kongo — Nouveau Campus': 'UK',
                     'BATIMENT ADMINISTRATIF DE L\'UNIVERSITE KONGO': 'UK — ADM', 'Marché central': 'MARCHÉ',
                     'Gare centrale': 'GARE', 'Stade de Mbanza-Ngungu': 'STADE', 'Musée': 'MUSÉE' };
   c.font = 'bold 12px "Segoe UI", sans-serif';
@@ -3569,6 +3601,27 @@ function drawMinimap(t){
   mctx.translate(-pxs, -pys);
   mctx.drawImage(mmStatic, 0, 0);                     // routes et POI en continu autour du joueur
   mctx.restore();
+  // ligne de guidage : du joueur vers le lieu de la mission (option GPS)
+  const gd = objTarget();
+  const [gxs, gys] = m2c(gd.x, gd.z);
+  const gdx = gxs - pxs, gdy = gys - pys, gcs = Math.cos(rot), gsn = Math.sin(rot);
+  const grx = gdx*gcs - gdy*gsn, gry = gdx*gsn + gdy*gcs;
+  const gdd = Math.hypot(grx, gry);
+  if (gdd > 12){
+    const gend = gdd < R - 10 ? 1 : (R - 11) / gdd;             // atteint l'objectif, ou s'arrête au bord si trop loin
+    mctx.save();
+    mctx.beginPath(); mctx.arc(W/2, H/2, R - 2, 0, 7); mctx.clip();   // reste dans le rond
+    mctx.strokeStyle = 'rgba(236,201,75,.9)';
+    mctx.lineWidth = 2.4;
+    mctx.setLineDash([6, 5]);
+    mctx.lineDashOffset = -(t / 35) % 11;                          // pointillés qui défilent vers l'objectif
+    mctx.beginPath();
+    mctx.moveTo(W/2, H/2);
+    mctx.lineTo(W/2 + grx*gend, H/2 + gry*gend);
+    mctx.stroke();
+    mctx.restore();
+    mctx.setLineDash([]);
+  }
   // objectif : projete dans l'espace tourne ; pulsation s'il est dans le cercle, fleche au bord sinon
   const tg = objTarget();
   const [txs, tys] = m2c(tg.x, tg.z);
@@ -3637,8 +3690,8 @@ function streetTick(now){
       if (d < bd - 3 || (d < bd + 3 && s.rank > bestRank)){ bd = d; best = s; bestRank = s.rank; }
     }
   }
-  // POI le plus proche (dans les 80m) : on le montre sous le nom de rue
-  let bp = null, bpd = 80;
+  // POI le plus proche (dans les 40m : uniquement au rond-point, pas dans tout le campus)
+  let bp = null, bpd = 40;
   for (const p of D.pois){
     const d = Math.hypot(p.x - S.pos.x, p.z - S.pos.z);
     if (d < bpd){ bpd = d; bp = p; }
@@ -3759,7 +3812,7 @@ const norm = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '
 
 function poiSearch(t){
   const keys = [
-    ['isp', 'ROND-POINT ISP'], ['institut', 'ROND-POINT ISP'], ['rond', 'ROND-POINT ISP'], ['point', 'ROND-POINT ISP'], ['rond-point', 'ROND-POINT ISP'],
+    ['isp', 'ISP'], ['cours', 'ISP'], ['institut', 'ROND-POINT ISP'], ['rond', 'ROND-POINT ISP'], ['point', 'ROND-POINT ISP'], ['rond-point', 'ROND-POINT ISP'],
     ['universite', 'Université Kongo — Nouveau Campus'], ['uk ', 'Université Kongo — Nouveau Campus'],
     ['campus', 'Université Kongo — Nouveau Campus'],
     ['marche', 'Marché central'], ['cyber', 'Cyber Café MwegISA'], ['impression', 'Cyber Café MwegISA'],
@@ -4270,7 +4323,15 @@ loadModelLibrary();
 /* parametres de test : ?auto=1 (demarre), ?at=x,z[,yaw] (teleporte), ?char=N (personnage) */
 {
   const qs = new URLSearchParams(location.search);
-  if (qs.has('auto')) setTimeout(() => startGame(), 600);
+  if (qs.has('auto')){
+    // on attend que le monde soit charge (bouton JOUER actif) puis on demarre
+    const waitWorld = () => {
+      const b = document.getElementById('loginPlay');
+      if (b && !b.disabled) setTimeout(() => startGame(), 200);
+      else setTimeout(waitWorld, 120);
+    };
+    setTimeout(waitWorld, 600);
+  }
   const at = qs.get('at');
   if (at){
     const pp = at.split(',').map(Number);
@@ -4292,6 +4353,16 @@ loadModelLibrary();
   }
 }
 
+
+/* ===== fin du chargement : on active le bouton de connexion ===== */
+setBoot(100, 'Prêt !');
+const castTimer = setTimeout(revealCast, 6000);
+(function(){
+  const b = document.getElementById('loginPlay');
+  if (b) b.disabled = false;
+  const t = document.getElementById('loadTxt');
+  if (t) t.textContent = 'Prêt ! Entre ton prénom.';
+})();
 /* ============================ BOUCLE ============================ */
 const clock = new THREE.Clock();
 function animate(){
@@ -4331,6 +4402,7 @@ S.playerName = '';
 showOverlay($('login'));
 $('objTitle').textContent = '—';
 animate();
+})();  // fin bootWorld
 
 /* PWA : enregistre l'app hors ligne si possible */
 try {

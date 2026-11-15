@@ -293,6 +293,10 @@ if not found_isp:
 manual.append({"name": "Cyber Café MwegISA", "cat": "cyber",
                "lon": 14.8678, "lat": -5.2512,
                "desc": "Impressions, forfaits 1h, et le ventilateur qui grince."})
+# ISP (batiment) : la mission « Cours de 8h » vise la porte du batiment, pas le rond-point
+manual.append({"name": "ISP", "cat": "universite",
+               "lon": 14.857569, "lat": -5.267571,
+               "desc": "Institut Supérieur Pédagogique — auditorium principal. Porte face au ROND-POINT."})
 # Cuisine : la vraie cantine/cuisine du campus ISP, a l'emplacement reel (712,912)
 manual.append({"name": "Cuisine", "cat": "cantina",
                "lon": 14.85642, "lat": -5.26675,
