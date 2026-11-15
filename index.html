@@ -2793,7 +2793,7 @@ function spawnWalkerOnRoad(r){
   g.traverse(o => { if (o.isMesh) o.castShadow = true; });
   scene.add(g);
   if (ped.mixer) refreshMaterials(g);
-  walkers.push({ g, mixer: ped.mixer, pts: r.pts, t: Math.random(), dir: Math.random()<.5?1:-1, sp: 0.00004+Math.random()*0.00004, off: r.w/2+1.2 });
+  walkers.push({ g, mixer: ped.mixer, pts: r.pts, t: Math.random(), dir: Math.random()<.5?1:-1, sp: 0.0008+Math.random()*0.0006, off: r.w/2+1.2 });
 }
 function spawnCampusWalkers(n){
   if (!campusRoads.length) return;
