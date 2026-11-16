@@ -321,7 +321,7 @@
 </div>
 
 <div id="hud" class="panel hidden">
-  <h1>ÉTUDIANT OYÉ <span id="ver" style="font-size:10px; color:#7f92ad; font-weight:600; letter-spacing:.5px; vertical-align:middle">v1.10.1</span></h1>
+  <h1>ÉTUDIANT OYÉ <span id="ver" style="font-size:10px; color:#7f92ad; font-weight:600; letter-spacing:.5px; vertical-align:middle">v1.11.0</span></h1>
   <div class="day" id="clock">Jour 1 — 07:00 · Mbanza-Ngungu</div>
   <div class="stat"><span>📚 Moyenne</span><b id="notes">12,5 / 20</b></div>
   <div class="stat"><span>⚡ Énergie</span><span class="bar"><i id="energyBar" style="width:85%"></i></span></div>
@@ -1122,7 +1122,8 @@ await frame();
 /* --- routes fusionnees : terre, asphalte, trottoirs, marquage, nids-de-poule --- */
 const markA = makeArrays(), islA = makeArrays(), bumpA = makeArrays();
 const roadA = makeArrays(), trackA = makeArrays(), rutA = makeArrays(), walkA = makeArrays(),
-      lineA = makeArrays(), dirtA = makeArrays(), holeA = makeArrays(), poleA = makeArrays();
+      lineA = makeArrays(), dirtA = makeArrays(), holeA = makeArrays(), poleA = makeArrays(),
+      vergeA = makeArrays(), curbA = makeArrays();
 const wireVerts = [];
 const MAJOR = new Set(['trunk','primary','secondary','tertiary','residential','unclassified','living_street','pedestrian']);
 const PAVED = new Set(['primary','secondary','tertiary','motorway','trunk']);
@@ -1180,6 +1181,8 @@ for (const r of D.roads){
   if (r.round) continue;                                    // l'anneau des ronds-points est dessine plus bas
   const avenue = isAvenue(r);
   const paved = PAVED.has(r.type) || avenue;
+  /* centre-ville : on soigne trottoirs, bordures et accotements gazonnes */
+  const nearC = r.pts.some(p => Math.hypot(p[0]-783, p[1]-1131) < 1450);
   if (paved) ribbon(r.pts, r.w, yR, roadA, 4, 0, r.w / 4);  // asphalte (texture a 4 m)
   else ribbon(r.pts, r.w, yR, trackA, 6);
   if (paved && r.w >= 6.5 && r.pts.length > 1){             // lignes de rive blanches
@@ -1188,11 +1191,20 @@ for (const r of D.roads){
   }
   if (paved){
     ribbon(r.pts, r.w + (avenue && !PAVED.has(r.type) ? 4 : 7), 0.03, dirtA, 6);   // bande de terre battue
-    if (!avenue || PAVED.has(r.type)){
+    if (!avenue || PAVED.has(r.type) || nearC){
       const sw = r.w/2 + 1.7, wp = sidewalkPts(r);
       if (wp){
-        ribbon(wp, 3.4, 0.13, walkA, 6, sw);                 // trottoir betonne (grands axes seulement)
+        ribbon(wp, 3.4, 0.13, walkA, 6, sw);                 // trottoir betonne
         ribbon(wp, 3.4, 0.13, walkA, 6, -sw);
+        /* bordure plate + face verticale : le trottoir ne flotte plus au-dessus de la terre */
+        ribbon(wp, 0.22, 0.142, curbA, 6, sw - 1.59);
+        ribbon(wp, 0.22, 0.142, curbA, 6, -(sw - 1.59));
+        ribbonWall(wp, 0.05, 0.131, curbA, sw - 1.59);
+        ribbonWall(wp, 0.05, 0.131, curbA, -(sw - 1.59));
+        if (nearC){                                          // accotement gazonne, cote batiments
+          ribbon(wp, 1.25, 0.137, vergeA, 2.6, sw + 2.32);
+          ribbon(wp, 1.25, 0.137, vergeA, 2.6, -(sw + 2.32));
+        }
       }
     }
   } else if (r.type !== 'pedestrian'){
@@ -1475,6 +1487,52 @@ function pavingTexture(){
   return t;
 }
 
+/* gazon des accotements : touffes, taches seches, lames claires */
+function grassTexture(){
+  const N = 128, cv = document.createElement('canvas'); cv.width = cv.height = N;
+  const c = cv.getContext('2d');
+  c.fillStyle = '#6d7d3e'; c.fillRect(0, 0, N, N);
+  for (let i = 0; i < 420; i++){
+    const x = Math.random()*N, y = Math.random()*N, h = 1 + Math.random()*4;
+    c.strokeStyle = Math.random() < 0.45 ? 'rgba(120,135,62,0.55)' : (Math.random() < 0.5 ? 'rgba(84,105,48,0.55)' : 'rgba(150,145,76,0.45)');
+    c.lineWidth = 1; c.beginPath(); c.moveTo(x, y); c.lineTo(x + (Math.random()-0.5)*3, y - h); c.stroke();
+  }
+  for (let i = 0; i < 10; i++){
+    const x = Math.random()*N, y = Math.random()*N, r = 4 + Math.random()*14;
+    const g = c.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, 'rgba(150,130,74,0.25)'); g.addColorStop(1, 'rgba(150,130,74,0)');
+    c.fillStyle = g; c.fillRect(x-r, y-r, r*2, r*2);
+  }
+  const t = new THREE.CanvasTexture(cv);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
+  return t;
+}
+
+/* face verticale le long d'une polyligne (bordure de trottoir) */
+function ribbonWall(pts, y0, y1, arr, off){
+  const n = pts.length; if (n < 2) return;
+  off = off || 0;
+  const nrm = [];
+  for (let i = 0; i < n; i++){
+    let dx = 0, dz = 0;
+    if (i > 0){ dx += pts[i][0]-pts[i-1][0]; dz += pts[i][1]-pts[i-1][1]; }
+    if (i < n-1){ dx += pts[i+1][0]-pts[i][0]; dz += pts[i+1][1]-pts[i][1]; }
+    const L = Math.hypot(dx, dz) || 1;
+    nrm.push([-dz/L, dx/L]);
+  }
+  const base = arr.pos.length / 3;
+  for (let i = 0; i < n; i++){
+    const x = pts[i][0] + nrm[i][0]*off, z = pts[i][1] + nrm[i][1]*off;
+    arr.pos.push(x, y0, z, x, y1, z);
+    arr.uv.push(0, 0, 0, 1);
+  }
+  for (let i = 0; i < n-1; i++){
+    const a = base + i*2;
+    arr.idx.push(a, a+2, a+1, a+1, a+2, a+3);
+  }
+}
+
 scene.add(new THREE.Mesh(geomFrom(dirtA.pos, dirtA.uv, null, dirtA.idx),
   new THREE.MeshLambertMaterial({ color: 0x7e4a2b, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -8 })));
 const trackMesh = new THREE.Mesh(geomFrom(trackA.pos, trackA.uv, null, trackA.idx),
@@ -1491,6 +1549,17 @@ const walkMesh = new THREE.Mesh(geomFrom(walkA.pos, walkA.uv, null, walkA.idx),
   new THREE.MeshLambertMaterial({ map: pavingTexture(), color: 0xffffff, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -8 }));
 walkMesh.receiveShadow = true;
 scene.add(walkMesh);
+/* accotements gazonnes + bordures beton */
+if (vergeA.pos.length){
+  const vergeMesh = new THREE.Mesh(geomFrom(vergeA.pos, vergeA.uv, null, vergeA.idx),
+    new THREE.MeshLambertMaterial({ map: grassTexture(), polygonOffset: true, polygonOffsetFactor: -5, polygonOffsetUnits: -10 }));
+  vergeMesh.receiveShadow = true; scene.add(vergeMesh);
+}
+if (curbA.pos.length){
+  const curbMesh = new THREE.Mesh(geomFrom(curbA.pos, curbA.uv, null, curbA.idx),
+    new THREE.MeshLambertMaterial({ color: 0xb8b2a5, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -12 }));
+  curbMesh.receiveShadow = true; scene.add(curbMesh);
+}
 scene.add(new THREE.Mesh(geomFrom(lineA.pos, lineA.uv, null, lineA.idx),
   new THREE.MeshBasicMaterial({ color: 0xf5d860, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -12 })));
 scene.add(new THREE.Mesh(geomFrom(markA.pos, markA.uv, null, markA.idx),
@@ -1585,18 +1654,107 @@ if (D.crossings && D.crossings.length){
 
 /* --- fenetres : texture tuile (mur clair + 1 fenetre) --- */
 function windowTexture(){
-  const cv = document.createElement('canvas'); cv.width = cv.height = 64;
+  const N = 128, cv = document.createElement('canvas'); cv.width = cv.height = N;
   const c = cv.getContext('2d');
-  c.fillStyle = '#f2ece0'; c.fillRect(0,0,64,64);      // mur
-  c.fillStyle = '#d8d0c0'; c.fillRect(0,0,10,10);      // coin muet (toits)
-  c.fillStyle = '#31404f'; c.fillRect(16,14,32,30);    // fenetre
-  c.fillStyle = '#7f94a8'; c.fillRect(16,14,32,6);     // reflet
-  c.strokeStyle = '#fbf7ee'; c.lineWidth = 3; c.strokeRect(16,14,32,30);
-  c.beginPath(); c.moveTo(32,14); c.lineTo(32,44); c.stroke();
-  c.fillStyle = '#c9bfae'; c.fillRect(10,48,44,8);     // rebord
+  c.fillStyle = '#f2ece0'; c.fillRect(0,0,N,N);                  // mur
+  for (let i = 0; i < 16; i++){                                  // coulures discretes
+    const x = Math.random()*N, w = 1 + Math.random()*3, h = 18 + Math.random()*82;
+    const g = c.createLinearGradient(0, 0, 0, h);
+    g.addColorStop(0, 'rgba(120,100,78,0.10)'); g.addColorStop(1, 'rgba(120,100,78,0)');
+    c.fillStyle = g; c.fillRect(x, 0, w, h);
+  }
+  c.fillStyle = '#cfc6b6'; c.fillRect(0, N-7, N, 7);             // dalle / plinthe
+  c.fillStyle = '#e4d9c6'; c.fillRect(0, N-12, N, 2);
+  // fenetre : cadre, vitre, reflet, croisillons, rebord
+  c.fillStyle = '#cfc5b2'; c.fillRect(32, 20, 64, 64);           // encadrement
+  c.fillStyle = '#2e3d4c'; c.fillRect(37, 25, 54, 52);           // vitre
+  c.fillStyle = '#7f94a8'; c.fillRect(37, 25, 54, 11);           // reflet
+  c.fillStyle = '#9fb2c2'; c.fillRect(41, 28, 20, 5);
+  c.strokeStyle = '#f7f1e4'; c.lineWidth = 4;
+  c.strokeRect(37, 25, 54, 52);
+  c.beginPath(); c.moveTo(64,25); c.lineTo(64,77); c.stroke();
+  c.fillStyle = '#d9cfbd'; c.fillRect(30, 80, 68, 7);            // rebord
+  c.fillStyle = 'rgba(90,72,52,0.22)'; c.fillRect(34, 87, 60, 4); // ombre sous le rebord
+  // petits volets de bois sur certaines fenetres (motif repete, leger)
+  c.fillStyle = 'rgba(118,78,50,0.55)'; c.fillRect(26, 28, 7, 44); c.fillRect(95, 28, 7, 44);
+  for (let y = 30; y < 70; y += 6){ c.fillStyle = 'rgba(230,210,185,0.25)'; c.fillRect(27, y, 5, 2); c.fillRect(96, y, 5, 2); }
   const t = new THREE.CanvasTexture(cv);
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
   return t;
+}
+
+/* portes et vitrines de commerce : petits atlas dessines (aucun asset externe) */
+function doorAtlas(){
+  const S = 128, cv = document.createElement('canvas'); cv.width = cv.height = S*2;
+  const c = cv.getContext('2d');
+  const styles = [
+    { frame:'#5b3a24', door:'#8a5a34', panel:'#74472a', handle:'#e0bd62', glass:null },
+    { frame:'#3c4652', door:'#51606e', panel:'#43505c', handle:'#d8d8d0', glass:'#23303c' },
+    { frame:'#7b2528', door:'#a53a34', panel:'#8c2b2b', handle:'#e8c964', glass:'#2a1a1a' },
+    { frame:'#4b3b2e', door:'#6e5a44', panel:'#5c4a37', handle:'#cfcfc9', glass:null },
+  ];
+  styles.forEach((s, i) => {
+    const ox = (i % 2)*S, oy = Math.floor(i/2)*S;
+    c.fillStyle = s.frame; c.fillRect(ox+8, oy+6, S-16, S-12);
+    c.fillStyle = s.door; c.fillRect(ox+14, oy+12, S-28, S-18);
+    c.fillStyle = s.panel; c.fillRect(ox+20, oy+20, S-40, 42); c.fillRect(ox+20, oy+70, S-40, 34);
+    c.strokeStyle = 'rgba(0,0,0,0.35)'; c.lineWidth = 2;
+    c.strokeRect(ox+20, oy+20, S-40, 42); c.strokeRect(ox+20, oy+70, S-40, 34);
+    if (s.glass){ c.fillStyle = s.glass; c.fillRect(ox+22, oy+22, S-44, 36); c.fillStyle = 'rgba(160,190,210,0.30)'; c.fillRect(ox+26, oy+24, S-52, 8); }
+    c.fillStyle = s.handle; c.beginPath(); c.arc(ox+S-26, oy+64, 3.4, 0, Math.PI*2); c.fill();
+    c.fillStyle = 'rgba(30,20,12,0.28)'; c.fillRect(ox+10, oy+S-14, S-20, 8);
+  });
+  const t = new THREE.CanvasTexture(cv);
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+  return t;
+}
+function shopAtlas(){
+  const W = 256, H = 128, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const c = cv.getContext('2d');
+  for (let v = 0; v < 2; v++){
+    const ox = v*128;
+    c.fillStyle = v ? '#6c5a44' : '#3f4b55'; c.fillRect(ox, 0, 128, H);
+    c.fillStyle = '#bfc5c9'; c.fillRect(ox+7, 8, 114, 112);                 // cadre alu
+    c.fillStyle = '#1c2731'; c.fillRect(ox+12, 13, 104, 98);                 // vitre sombre
+    const g = c.createLinearGradient(ox+12, 13, ox+110, 105);
+    g.addColorStop(0, 'rgba(130,170,195,0.35)'); g.addColorStop(0.45, 'rgba(70,95,115,0.12)'); g.addColorStop(1, 'rgba(220,200,160,0.22)');
+    c.fillStyle = g; c.fillRect(ox+12, 13, 104, 98);
+    for (let k = 0; k < 5; k++){                                            // affiches / marchandises
+      const px = ox+18 + k*19, py = 30 + (k%3)*18;
+      c.fillStyle = ['#c0182d','#e3b030','#2d8a5e','#2d5fa8','#f3f2ec'][k];
+      c.fillRect(px, py, 13, 20);
+    }
+    c.fillStyle = '#d8d2c4'; c.fillRect(ox+8, 108, 112, 10);                 // seuil
+    c.strokeStyle = '#8f979d'; c.lineWidth = 3; c.beginPath();
+    c.moveTo(ox+64, 13); c.lineTo(ox+64, 111); c.stroke();
+  }
+  const t = new THREE.CanvasTexture(cv);
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+  return t;
+}
+/* auvent : lames de toile rayee, construit en quads colores */
+function addAwning(arr, cx, cz, w, depth, y, u, n, hexA, hexB){
+  const stripes = 7, sw = w/stripes, drop = 0.34;
+  const P = (lx, ly, lz) => [cx + u[0]*lx + n[0]*lz, ly, cz + u[1]*lx + n[1]*lz];
+  const cA = new THREE.Color(hexA), cB = new THREE.Color(hexB);
+  for (let i = 0; i < stripes; i++){
+    const x0 = -w/2 + i*sw, x1 = x0 + sw;
+    const col = (i % 2) ? cA : cB;
+    const base = arr.pos.length/3;
+    const q = [P(x0, y, 0.03), P(x1, y, 0.03), P(x1, y-drop, depth), P(x0, y-drop, depth)];
+    for (const p of q){ arr.pos.push(p[0],p[1],p[2]); arr.uv.push(0,0); arr.col.push(col.r,col.g,col.b); }
+    arr.idx.push(base, base+1, base+2, base, base+2, base+3);
+  }
+  // petit volant vertical au bord
+  for (let i = 0; i < stripes; i++){
+    const x0 = -w/2 + i*sw, x1 = x0 + sw;
+    const col = (i % 2) ? cA : cB;
+    const base = arr.pos.length/3;
+    const q = [P(x0, y-drop, depth), P(x1, y-drop, depth), P(x1, y-drop-0.18, depth), P(x0, y-drop-0.18, depth)];
+    for (const p of q){ arr.pos.push(p[0],p[1],p[2]); arr.uv.push(0,0); arr.col.push(col.r,col.g,col.b); }
+    arr.idx.push(base, base+1, base+2, base, base+2, base+3);
+  }
 }
 
 /* --- atlas d'enseignes de commerces kinois --- */
@@ -1649,6 +1807,7 @@ await frame();
 const bldA = makeArrays();
 const roofA = makeArrays();
 const signA = makeArrays();
+const doorA = makeArrays(), shopA = makeArrays(), awningA = makeArrays();
 const bldRects = [];
 const WALLS = ['#b4653f','#c98d63','#cfa878','#ece5d6','#d9b47a','#b8703f','#e0d5c0','#a85a38','#d8c8a8','#c2734a']; // brique, banco, blanc delave
 const ROOFS = ['#b9c0c6','#9aa3ab','#8a6a52','#6d8494','#a06a4e','#7f878e','#5f7f92','#b08060'];  // tole ondulee
@@ -1825,6 +1984,12 @@ function obbOf(P){
   return { w, d, ux, uz, nx, nz, cx: ux*cu + nx*cn, cz: uz*cu + nz*cn, ar: w*d };
 }
 function pushCol(arr, col, n){ for (let i = 0; i < n; i++) arr.col.push(col.r, col.g, col.b); }
+/* degrade vertical des facades : pied plus sombre, haut legerement plus clair.
+   Quads de mur = [a bas, b bas, b haut, a haut]. */
+function pushWallGrad(arr, col){
+  const b = col.clone().multiplyScalar(0.78), t = col.clone().multiplyScalar(1.045);
+  arr.col.push(b.r,b.g,b.b, b.r,b.g,b.b, t.r,t.g,t.b, t.r,t.g,t.b);
+}
 
 /* batiments reels modelises a part (photos de Mbanza-Ngungu) : on les reperage par leur position dans les donnees OSM */
 const LANDMARK_DEFS = [
@@ -1877,7 +2042,7 @@ for (const poly of BLDS){
     }
     const v0 = bldA.pos.length / 3;
     bldA.pos.push(a[0], 0, a[1],  b[0], 0, b[1],  b[0], bh, b[1],  a[0], bh, a[1]);
-    pushCol(bldA, wallCol, 4);
+    pushWallGrad(bldA, wallCol);
     bldA.uv.push(uPhase, 0,  uPhase + L/4, 0,  uPhase + L/4, bh/3,  uPhase, bh/3);
     bldA.idx.push(v0, v0+1, v0+2,  v0, v0+2, v0+3);
     uPhase += L/4;
@@ -1924,38 +2089,81 @@ for (const poly of BLDS){
       } catch (err) { /* polygone degenere : pas de toit */ }
     }
   }
+  /* --- finitions de toit pres du centre : acrotere sur toits plats, antennes --- */
+  const distC = Math.hypot(cx - 783, cz - 1131);
+  if (!gabled && distC < 680 && rectness > 0.86 && Math.min(ob.w, ob.d) > 4 && Math.random() < 0.55){
+    const ph = 0.4, th = 0.16, y0 = bh + 0.05, colP = 0xc6c0b3;
+    addBox(roofA, ob.cx + ob.nx*(ob.d/2), ob.cz + ob.nz*(ob.d/2), ob.w, th, ph, colP, [ob.ux,ob.uz], [ob.nx,ob.nz], y0);
+    addBox(roofA, ob.cx - ob.nx*(ob.d/2), ob.cz - ob.nz*(ob.d/2), ob.w, th, ph, colP, [ob.ux,ob.uz], [ob.nx,ob.nz], y0);
+    addBox(roofA, ob.cx + ob.ux*(ob.w/2), ob.cz + ob.uz*(ob.w/2), th, ob.d, ph, colP, [ob.ux,ob.uz], [ob.nx,ob.nz], y0);
+    addBox(roofA, ob.cx - ob.ux*(ob.w/2), ob.cz - ob.uz*(ob.w/2), th, ob.d, ph, colP, [ob.ux,ob.uz], [ob.nx,ob.nz], y0);
+  }
+  if (distC < 1050 && Math.random() < 0.07){
+    const ah = 1.8 + Math.random()*2.2, ay = bh + (gabled ? 1.6 : 0.35);
+    addBox(roofA, cx, cz, 0.05, 0.05, ah, 0x2b2f33, [1,0], [0,1], ay);
+    addBox(roofA, cx, cz, 0.9, 0.035, 0.035, 0x2b2f33, [1,0], [0,1], ay + ah*0.72);
+    addBox(roofA, cx, cz, 0.62, 0.035, 0.035, 0x2b2f33, [1,0], [0,1], ay + ah*0.88);
+  }
   // ballon d'eau sur le toit (classique a Mbanza-Ngungu)
   if (Math.random() < 0.14){
     const bcx = (Math.min(...xs) + Math.max(...xs))/2, bcz = (Math.min(...zs) + Math.max(...zs))/2;
     addBox(roofA, bcx, bcz, 1.3, 1.3, 1.15, 0x2e4a6e, [1,0], [0,1], bh + 0.05);
   }
-  // enseigne de commerce sur le mur qui donne sur l'avenue la plus proche
-  if (bh >= 3.4 && Math.random() < 0.55){
-    const nearMaj = nearestMajPoint(cx, cz);
-    if (nearMaj.d < 484){                            // moins de 22 m d'une avenue
-      const bq = nearMaj.q;
-      let be = -1, bdd = 1e9;
-      for (let i = 0; i < k; i++){
-        const a = P[i], b = P[(i+1)%k];
-        const mx = (a[0]+b[0])/2, mz = (a[1]+b[1])/2;
-        const d = (bq[0]-mx)*(bq[0]-mx) + (bq[1]-mz)*(bq[1]-mz);
-        if (d < bdd){ bdd = d; be = i; }
+  /* --- niveau rue : enseigne, porte, vitrine, auvent --- */
+  const nearMaj = nearestMajPoint(cx, cz);
+  let facade = null;
+  if (bh >= 3.0 && nearMaj.d < 484){                 // moins de 22 m d'une avenue
+    const bq = nearMaj.q;
+    let be = -1, bdd = 1e9;
+    for (let i = 0; i < k; i++){
+      const a = P[i], b = P[(i+1)%k];
+      const mx = (a[0]+b[0])/2, mz = (a[1]+b[1])/2;
+      const d = (bq[0]-mx)*(bq[0]-mx) + (bq[1]-mz)*(bq[1]-mz);
+      if (d < bdd){ bdd = d; be = i; }
+    }
+    const a = P[be], b = P[(be+1)%k];
+    const el = Math.hypot(b[0]-a[0], b[1]-a[1]);
+    if (el > 3.2){
+      const ux = (b[0]-a[0])/el, uz = (b[1]-a[1])/el;
+      let nx = -uz, nz = ux;
+      const mx = (a[0]+b[0])/2, mz = (a[1]+b[1])/2;
+      if (nx*(mx-cx) + nz*(mz-cz) < 0){ nx = -nx; nz = -nz; }
+      facade = { el, ux, uz, nx, nz, mx, mz };
+    }
+  }
+  let signTile = -1;
+  if (facade && bh >= 3.2 && Math.random() < 0.64){
+    const { el, ux, uz, nx, nz, mx, mz } = facade;
+    const sw = Math.min(el*0.72, 6.5);
+    const yb = Math.max(2.45, bh - 1.75);
+    const sh = Math.min(1.35, bh - yb - 0.15);
+    if (sh > 0.4){
+      signTile = Math.floor(Math.random() * SIGN_NAMES.length);
+      addSign(signA, mx, mz, sw, sh, yb, [ux,uz], [nx,nz], 0.18, signTile, SIGN_COLS, SIGN_ROWS);
+      if (Math.random() < 0.26){                     // enseigne perpendiculaire, lisible dans la rue
+        addSign(signA, mx + nx*0.6, mz + nz*0.6, 1.45, 0.62, Math.max(2.35, Math.min(3.2, bh - 0.9)),
+                [nx,nz], [ux,uz], 0, signTile, SIGN_COLS, SIGN_ROWS);
       }
-      const a = P[be], b = P[(be+1)%k];
-      const el = Math.hypot(b[0]-a[0], b[1]-a[1]);
-      if (el > 3.5){
-        const ux = (b[0]-a[0])/el, uz = (b[1]-a[1])/el;
-        let nx = -uz, nz = ux;
-        const mx = (a[0]+b[0])/2, mz = (a[1]+b[1])/2;
-        if (nx*(mx-cx) + nz*(mz-cz) < 0){ nx = -nx; nz = -nz; }
-        const sw = Math.min(el*0.72, 6.5);
-        const sh = Math.min(1.35, bh - 0.7);
-        if (sh > 0.45){
-          const yb = Math.max(0.6, bh - 2.0);
-          const tile = Math.floor(Math.random() * SIGN_NAMES.length);
-          addSign(signA, mx, mz, sw, sh, yb, [ux,uz], [nx,nz], 0.18, tile, SIGN_COLS, SIGN_ROWS);
-        }
+    }
+  }
+  if (facade){
+    const { el, ux, uz, nx, nz, mx, mz } = facade;
+    const hasShop = el > 4.6 && Math.random() < (signTile >= 0 ? 0.70 : 0.24);
+    if (Math.random() < 0.80){                       // porte (souvent decalee a gauche de la vitrine)
+      const dt = hasShop ? -0.27 : (Math.random()*0.24 - 0.12);
+      const dx = mx + ux*(dt*el), dz = mz + uz*(dt*el);
+      addSign(doorA, dx, dz, 1.45, Math.min(2.3, bh - 0.55), 0.02,
+              [ux,uz], [nx,nz], 0.035, Math.floor(Math.random()*4), 2, 2);
+      if (Math.random() < 0.52){                     // auvent de porte
+        const cc = [[0x2e7d4f,0xe8e2d4],[0xa53a34,0xe8e2d4],[0x2d5fa8,0xe8e2d4],[0xe3b030,0x7a3e2f]][Math.floor(Math.random()*4)];
+        addAwning(awningA, dx, dz, 2.45, 1.05, 2.5, [ux,uz], [nx,nz], cc[0], cc[1]);
       }
+    }
+    if (hasShop){
+      const sx = mx + ux*(0.24*el), sz = mz + uz*(0.24*el);
+      const sw = Math.min(2.9, el*0.42);
+      if (sw > 1.5) addSign(shopA, sx, sz, sw, 1.65, 0.35, [ux,uz], [nx,nz], 0.04,
+                            Math.floor(Math.random()*2), 2, 1);
     }
   }
   // emprise au sol (collision) = englobant de la vraie forme
@@ -2241,6 +2449,16 @@ const signAtlas = buildSignAtlas();
 const signMesh = new THREE.Mesh(geomFrom(signA.pos, signA.uv, null, signA.idx),
   new THREE.MeshBasicMaterial({ map: signAtlas, side: THREE.DoubleSide }));
 scene.add(signMesh);
+/* portes, vitrines et auvents : petits volumes de rue, fusionnes en 3 maillages */
+const doorMesh = new THREE.Mesh(geomFrom(doorA.pos, doorA.uv, null, doorA.idx),
+  new THREE.MeshLambertMaterial({ map: doorAtlas() }));
+doorMesh.receiveShadow = true; scene.add(doorMesh);
+const shopMesh = new THREE.Mesh(geomFrom(shopA.pos, shopA.uv, null, shopA.idx),
+  new THREE.MeshLambertMaterial({ map: shopAtlas() }));
+shopMesh.receiveShadow = true; scene.add(shopMesh);
+const awningMesh = new THREE.Mesh(geomFrom(awningA.pos, awningA.uv, awningA.col, awningA.idx),
+  new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }));
+awningMesh.castShadow = true; awningMesh.receiveShadow = true; scene.add(awningMesh);
 
 /* --- lieux cles : batiments dedies + etiquettes --- */
 function labelSprite(text, color){
@@ -2682,11 +2900,11 @@ for (const r of buildRoads){
 /* --- palmiers, bananiers, bambous, herbes hautes --- */
 function addPalm(x, z, s){
   const cT = new THREE.Color(0x7a5c3c);
-  const cF = new THREE.Color(Math.random() < 0.5 ? 0x35692c : 0x3f7a33);
+  const cF = [new THREE.Color(0x35692c), new THREE.Color(0x3f7a33), new THREE.Color(0x4a8a3c)];
   const push = (p, col) => { treeA.pos.push(p[0],p[1],p[2]); treeA.col.push(col.r,col.g,col.b); };
-  const tri = (a,b,c) => { push(a,cF); push(b,cF); push(c,cF);
+  const tri = (a,b,c,col) => { push(a,col); push(b,col); push(c,col);
     treeA.idx.push(treeA.pos.length/3-3, treeA.pos.length/3-2, treeA.pos.length/3-1); };
-  const h = 6.5*s, r = 0.26*s;
+  const h = 7.0*s, r = 0.22*s;
   for (let i = 0; i < 6; i++){
     const a0 = i/6*Math.PI*2, a1 = (i+1)/6*Math.PI*2;
     const x0 = x+Math.cos(a0)*r, z0 = z+Math.sin(a0)*r;
@@ -2695,15 +2913,24 @@ function addPalm(x, z, s){
     const b = treeA.pos.length/3 - 4;
     treeA.idx.push(b, b+1, b+2, b, b+2, b+3);
   }
-  for (let i = 0; i < 8; i++){                                          // frondes qui retombent
-    const a = i/8*Math.PI*2 + Math.random()*0.3;
+  /* deux couronnes de frondes fines : une corolle retombante + une couronne plus droite */
+  for (let i = 0; i < 12; i++){
+    const col = cF[i % 3], a = i/12*Math.PI*2 + Math.random()*0.22;
     const dx = Math.cos(a), dz = Math.sin(a);
-    const L = 2.7*s, droop = 1.2*s, w = 0.5*s;
+    const L = (2.35 + Math.random()*0.65)*s, droop = (0.85 + Math.random()*0.45)*s, w = (0.19 + Math.random()*0.05)*s;
+    const p0 = [x, h, z], tip = [x + dx*L, h - droop, z + dz*L];
+    const s1 = [x + dx*L*0.52 - dz*w, h + 0.16*s, z + dz*L*0.52 + dx*w];
+    const s2 = [x + dx*L*0.52 + dz*w, h + 0.16*s, z + dz*L*0.52 - dx*w];
+    tri(p0, s1, tip, col); tri(p0, tip, s2, col);
+  }
+  for (let i = 0; i < 6; i++){
+    const col = cF[(i+1) % 3], a = i/6*Math.PI*2 + 0.3;
+    const dx = Math.cos(a), dz = Math.sin(a);
+    const L = (1.45 + Math.random()*0.35)*s, w = 0.15*s, tip = [x + dx*L, h + 0.52*s, z + dz*L];
     const p0 = [x, h, z];
-    const tip = [x + dx*L, h - droop, z + dz*L];
-    const s1 = [x + dx*L*0.5 - dz*w, h + 0.2*s, z + dz*L*0.5 + dx*w];
-    const s2 = [x + dx*L*0.5 + dz*w, h + 0.2*s, z + dz*L*0.5 - dx*w];
-    tri(p0, s1, tip); tri(p0, tip, s2);
+    const s1 = [x + dx*L*0.45 - dz*w, h + 0.35*s, z + dz*L*0.45 + dx*w];
+    const s2 = [x + dx*L*0.45 + dz*w, h + 0.35*s, z + dz*L*0.45 - dx*w];
+    tri(p0, s1, tip, col); tri(p0, tip, s2, col);
   }
 }
 function addBanana(x, z, s){
@@ -2883,6 +3110,528 @@ const treeMesh = new THREE.Mesh(geomFrom(treeA.pos, null, treeA.col, treeA.idx),
   new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }));
 treeMesh.castShadow = true;
 scene.add(treeMesh);
+
+/* ============================ BEAUTE DES RUES ============================ */
+/* Lampadaires, bancs, poubelles, abribus, etals du marche, jardins, haies…
+   Tout est fusionne en quelques maillages : aucun cout de draw call par objet. */
+bootLog('beaute rues debut');
+const decoA = makeArrays(), glassA = makeArrays(), lawnA = makeArrays();
+
+function addFlat(arr, x, z, w, d, y, hex, u, n){
+  u = u || [1,0]; n = n || [0,1];
+  const c = new THREE.Color(hex), base = arr.pos.length/3;
+  const P = (lx,lz) => [x + u[0]*lx + n[0]*lz, y, z + u[1]*lx + n[1]*lz];
+  const q = [P(-w/2,-d/2), P(w/2,-d/2), P(w/2,d/2), P(-w/2,d/2)];
+  for (const p of q){ arr.pos.push(p[0],p[1],p[2]); arr.uv.push(p[0]/3.2, p[2]/3.2); arr.col.push(c.r,c.g,c.b); }
+  arr.idx.push(base, base+1, base+2, base, base+2, base+3);
+}
+function addLawn(x, z, w, d, ang){
+  const ux = Math.cos(ang), uz = Math.sin(ang);
+  addFlat(lawnA, x, z, w, d, 0.036, 0xffffff, [ux,uz], [-uz,ux]);
+}
+function addBlob(arr, x, y, z, rx, ry, rz, hex){
+  const c = new THREE.Color(hex), base = arr.pos.length/3;
+  const v = [[0,1,0],[0,-1,0],[1,0,0],[-1,0,0],[0,0,1],[0,0,-1]];
+  for (const p of v){ arr.pos.push(x+p[0]*rx, y+p[1]*ry, z+p[2]*rz); arr.uv.push(0,0); arr.col.push(c.r,c.g,c.b); }
+  const f = [[0,2,4],[0,4,3],[0,3,5],[0,5,2],[1,4,2],[1,3,4],[1,5,3],[1,2,5]];
+  for (const t of f) arr.idx.push(base+t[0], base+t[1], base+t[2]);
+}
+function addCone(arr, x, z, r, h, y, hex, segs){
+  segs = segs || 8;
+  const c = new THREE.Color(hex), base = arr.pos.length/3;
+  arr.pos.push(x, y+h, z); arr.uv.push(0.5,1); arr.col.push(c.r,c.g,c.b);
+  for (let i = 0; i <= segs; i++){
+    const a = i/segs*Math.PI*2;
+    arr.pos.push(x+Math.cos(a)*r, y, z+Math.sin(a)*r);
+    arr.uv.push(i/segs, 0); arr.col.push(c.r,c.g,c.b);
+  }
+  for (let i = 1; i <= segs; i++) arr.idx.push(base, base+i, base+i+1);
+}
+function addLamp(px, pz, ax, az){
+  addBox(decoA, px, pz, 0.16, 0.16, 5.3, 0x37414b, [1,0], [0,1], 0);
+  addBox(decoA, px + ax*0.7, pz + az*0.7, 1.4, 0.1, 0.1, 0x37414b, [ax,az], [-az,ax], 5.15);
+  addBox(glassA, px + ax*1.45, pz + az*1.45, 0.55, 0.3, 0.12, 0xffe6b0, [ax,az], [-az,ax], 5.12);
+  addBox(decoA, px + ax*1.45, pz + az*1.45, 0.64, 0.38, 0.08, 0x2c343b, [ax,az], [-az,ax], 5.24);
+}
+function addBench(x, z, ux, uz, nx, nz, y0){
+  y0 = y0 || 0;
+  addBox(decoA, x, z, 1.7, 0.48, 0.08, 0x8a5a36, [ux,uz], [nx,nz], y0 + 0.34);
+  addBox(decoA, x + nx*0.23, z + nz*0.23, 1.7, 0.08, 0.46, 0x8a5a36, [ux,uz], [nx,nz], y0 + 0.46);
+  for (const t of [-0.62, 0.62])
+    addBox(decoA, x + ux*t, z + uz*t, 0.09, 0.36, 0.34, 0x384049, [ux,uz], [nx,nz], y0);
+}
+function addBin(x, z, y0){
+  y0 = y0 || 0;
+  addBox(decoA, x, z, 0.42, 0.42, 0.62, 0x2d6b46, [1,0], [0,1], y0);
+  addBox(decoA, x, z, 0.48, 0.48, 0.06, 0x245238, [1,0], [0,1], y0 + 0.58);
+}
+function addPlanter(x, z, ux, uz, nx, nz, y0){
+  addBox(decoA, x, z, 1.3, 0.62, 0.5, 0x9a968c, [ux,uz], [nx,nz], y0);
+  addBox(decoA, x, z, 1.12, 0.46, 0.16, 0x3f6b39, [ux,uz], [nx,nz], y0 + 0.46);
+  for (let k = 0; k < 4; k++){
+    const t = (k - 1.5)*0.26;
+    addBlob(decoA, x + ux*t, y0 + 0.7, z + uz*t, 0.11, 0.1, 0.11,
+            [0xf2d24b,0xe86a4a,0xc76bd8,0xf7f3e8][k]);
+  }
+}
+function addStall(x, z, ang, y0){
+  y0 = y0 || 0;
+  const ux = Math.cos(ang), uz = Math.sin(ang), nx = -uz, nz = ux;
+  const cols = [[0xc0392b,0xf2e8d5],[0x2d7d46,0xf2e8d5],[0x2d5fa8,0xf2e8d5],[0xe3b030,0x7a3e2f]];
+  const cc = cols[Math.floor(Math.random()*cols.length)];
+  addBox(decoA, x, z, 1.9, 0.95, 0.75, 0x8a5a36, [ux,uz], [nx,nz], y0);
+  for (const [lu,ln] of [[-0.92,-0.45],[0.92,-0.45],[-0.92,0.45],[0.92,0.45]])
+    addBox(decoA, x + ux*lu + nx*ln, z + uz*lu + nz*ln, 0.08, 0.08, 2.35, 0x6b4a2f, [ux,uz], [nx,nz], y0);
+  addAwning(decoA, x - nx*0.9, z - nz*0.9, 2.5, 1.8, y0 + 2.36, [ux,uz], [nx,nz], cc[0], cc[1]);
+  const goods = [0xd9534f,0xf0ad4e,0x5bc0de,0x7bbf6a,0xe8c964];
+  for (let k = 0; k < 5; k++){
+    const gu = (Math.random()-0.5)*1.45, gn = (Math.random()-0.5)*0.62;
+    addBox(decoA, x + ux*gu + nx*gn, z + uz*gu + nz*gn, 0.26, 0.26, 0.22,
+           goods[k], [ux,uz], [nx,nz], y0 + 0.76);
+  }
+}
+function addUmbrella(x, z, y0){
+  y0 = y0 || 0;
+  const cols = [0xc0392b,0x2d7d46,0x2d5fa8,0xe3b030];
+  addBox(decoA, x, z, 0.06, 0.06, 2.35, 0x6b4a2f, [1,0], [0,1], y0);
+  addCone(decoA, x, z, 1.25, 0.55, y0 + 2.18, cols[Math.floor(Math.random()*cols.length)], 8);
+}
+function addGarden(x, z, ang, y0){
+  y0 = y0 || 0.03;
+  const ux = Math.cos(ang), uz = Math.sin(ang), nx = -uz, nz = ux;
+  addFlat(decoA, x, z, 6.6, 4.4, y0 + 0.005, 0x6b4428, [ux,uz], [nx,nz]);
+  for (let iu = -2.6; iu <= 2.61; iu += 1.0){
+    for (let iv = -1.5; iv <= 1.51; iv += 1.0){
+      const px = x + ux*iu + nx*iv, pz = z + uz*iu + nz*iv;
+      addBox(decoA, px, pz, 0.2, 0.2, 0.4, 0x4d7a3e, [ux,uz], [nx,nz], y0 + 0.02);
+      if (Math.random() < 0.45) addBox(decoA, px, pz, 0.16, 0.16, 0.16, 0x6fae4a, [ux,uz], [nx,nz], y0 + 0.36);
+    }
+  }
+  // cloture legere en bois
+  for (let iu = -3.3; iu <= 3.31; iu += 1.65) for (const iv of [-2.2, 2.2])
+    addBox(decoA, x + ux*iu + nx*iv, z + uz*iu + nz*iv, 0.08, 0.08, 0.9, 0x7a5a3a, [ux,uz], [nx,nz], y0);
+  for (let iv = -2.2; iv <= 2.21; iv += 1.1) for (const iu of [-3.3, 3.3])
+    addBox(decoA, x + ux*iu + nx*iv, z + uz*iu + nz*iv, 0.08, 0.08, 0.9, 0x7a5a3a, [ux,uz], [nx,nz], y0);
+  for (const iv of [-2.2, 2.2]) for (const hy of [0.32, 0.68])
+    addBox(decoA, x + nx*iv, z + nz*iv, 6.6, 0.06, 0.06, 0x8a6a46, [ux,uz], [nx,nz], y0 + hy);
+  for (const iu of [-3.3, 3.3]) for (const hy of [0.32, 0.68])
+    addBox(decoA, x + ux*iu, z + uz*iu, 0.06, 4.4, 0.06, 0x8a6a46, [ux,uz], [nx,nz], y0 + hy);
+}
+function addClothesline(x, z, ang, y0){
+  y0 = y0 || 0.03;
+  const ux = Math.cos(ang), uz = Math.sin(ang), nx = -uz, nz = ux;
+  for (const t of [-1.7, 1.7]) addBox(decoA, x + ux*t, z + uz*t, 0.08, 0.08, 2.0, 0x6b4a2f, [ux,uz], [nx,nz], y0);
+  addBox(decoA, x, z, 3.5, 0.035, 0.035, 0xcfcfc9, [ux,uz], [nx,nz], y0 + 1.95);
+  const cols = [0xd9534f,0x5bc0de,0xf0ad4e,0x8e6bbf,0x44a17a];
+  for (let k = 0; k < 4; k++){
+    const t = -1.2 + k*0.8;
+    addBox(decoA, x + ux*t, z + uz*t, 0.42, 0.03, 0.55, cols[k], [ux,uz], [nx,nz], y0 + 1.38);
+  }
+}
+function flagTexture(){
+  const cv = document.createElement('canvas'); cv.width = 256; cv.height = 160;
+  const c = cv.getContext('2d');
+  c.fillStyle = '#1b6fd0'; c.fillRect(0,0,256,160);
+  c.fillStyle = '#f4d22a';
+  c.beginPath(); c.moveTo(0,160); c.lineTo(256,0); c.lineTo(256,28); c.lineTo(28,160); c.closePath(); c.fill();
+  c.fillStyle = '#c0182d';
+  c.beginPath(); c.moveTo(0,150); c.lineTo(236,0); c.lineTo(256,0); c.lineTo(256,10); c.lineTo(10,160); c.lineTo(0,160); c.closePath(); c.fill();
+  c.fillStyle = '#f4d22a'; c.beginPath();
+  for (let i = 0; i < 10; i++){
+    const a = -Math.PI/2 + i*Math.PI/5, r = i % 2 ? 9 : 23;
+    c[i ? 'lineTo' : 'moveTo'](52 + Math.cos(a)*r, 44 + Math.sin(a)*r);
+  }
+  c.closePath(); c.fill();
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+function busSignTexture(){
+  const cv = document.createElement('canvas'); cv.width = 256; cv.height = 96;
+  const c = cv.getContext('2d');
+  c.fillStyle = '#1d3f94'; c.fillRect(0,0,256,96);
+  c.strokeStyle = '#f4d22a'; c.lineWidth = 6; c.strokeRect(5,5,246,86);
+  c.fillStyle = '#fff'; c.fillRect(22,30,58,26);
+  c.fillStyle = '#1d3f94'; c.fillRect(28,35,16,12); c.fillRect(50,35,16,12);
+  c.fillStyle = '#fff';
+  c.beginPath(); c.arc(34,58,6,0,Math.PI*2); c.fill();
+  c.beginPath(); c.arc(68,58,6,0,Math.PI*2); c.fill();
+  c.font = 'bold 30px "Segoe UI", sans-serif'; c.textAlign = 'center'; c.fillText('ARRÊT BUS', 164, 62);
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+/* --- lampadaires le long des avenues du centre --- */
+let lampCount = 0;
+for (const r of buildRoads){
+  if (lampCount >= 290 || r.round) continue;
+  const nearC = r.pts.some(p => Math.hypot(p[0]-783, p[1]-1131) < 1350);
+  if (!nearC) continue;
+  let dist = 0;
+  for (let i = 0; i < r.pts.length-1; i++){
+    const a = r.pts[i], b = r.pts[i+1];
+    const L = Math.hypot(b[0]-a[0], b[1]-a[1]);
+    for (let d = (dist % 36); d < L; d += 36){
+      if (lampCount >= 290) break;
+      if (Math.random() < 0.4) continue;
+      const t = d/L, ux = (b[0]-a[0])/L, uz = (b[1]-a[1])/L;
+      const nx = -uz, nz = ux, side = (lampCount % 2) ? 1 : -1;
+      const px = a[0] + ux*t*L + nx*side*(r.w/2 + 0.65);
+      const pz = a[1] + uz*t*L + nz*side*(r.w/2 + 0.65);
+      if (insideBld(px, pz, 0.8)) continue;
+      addLamp(px, pz, -nx*side, -nz*side);
+      lampCount++;
+    }
+    dist += L;
+  }
+}
+/* --- bacs fleuris sur les trottoirs des avenues --- */
+let planterCount = 0;
+for (const r of buildRoads){
+  if (planterCount >= 34 || r.round) continue;
+  if (!PAVED.has(r.type) && !isAvenue(r)) continue;
+  const nearC = r.pts.some(p => Math.hypot(p[0]-783, p[1]-1131) < 900);
+  if (!nearC) continue;
+  let dist = 0;
+  for (let i = 0; i < r.pts.length-1; i++){
+    const a = r.pts[i], b = r.pts[i+1];
+    const L = Math.hypot(b[0]-a[0], b[1]-a[1]);
+    for (let d = (dist % 105); d < L; d += 105){
+      if (planterCount >= 34) break;
+      if (Math.random() < 0.4) continue;
+      const t = d/L, ux = (b[0]-a[0])/L, uz = (b[1]-a[1])/L;
+      const nx = -uz, nz = ux, side = (planterCount % 2) ? 1 : -1;
+      const px = a[0] + ux*t*L + nx*side*(r.w/2 + 2.85);
+      const pz = a[1] + uz*t*L + nz*side*(r.w/2 + 2.85);
+      if (insideBld(px, pz, 1.2)) continue;
+      addPlanter(px, pz, ux, uz, nx*side, nz*side, 0.14);
+      planterCount++;
+    }
+    dist += L;
+  }
+}
+
+/* --- bancs, poubelles le long des trottoirs --- */
+let benchCount = 0, binCount = 0;
+for (const r of buildRoads){
+  if (r.round || benchCount >= 18) continue;
+  if (!PAVED.has(r.type) && !isAvenue(r)) continue;      // bancs seulement la ou il y a un trottoir
+  const nearC = r.pts.some(p => Math.hypot(p[0]-783, p[1]-1131) < 900);
+  if (!nearC) continue;
+  let dist = 0;
+  for (let i = 0; i < r.pts.length-1; i++){
+    const a = r.pts[i], b = r.pts[i+1];
+    const L = Math.hypot(b[0]-a[0], b[1]-a[1]);
+    for (let d = (dist % 135); d < L; d += 135){
+      if (benchCount >= 18) break;
+      if (Math.random() < 0.35) continue;
+      const t = d/L, ux = (b[0]-a[0])/L, uz = (b[1]-a[1])/L;
+      const nx = -uz, nz = ux, side = Math.random() < 0.5 ? 1 : -1;
+      const px = a[0] + ux*t*L + nx*side*(r.w/2 + 3.0);
+      const pz = a[1] + uz*t*L + nz*side*(r.w/2 + 3.0);
+      if (insideBld(px, pz, 1.0)) continue;
+      addBench(px, pz, ux, uz, nx*side, nz*side, 0.14);
+      benchCount++;
+      if (binCount < 10 && Math.random() < 0.6){
+        addBin(px + ux*1.5, pz + uz*1.5, 0.14);
+        binCount++;
+      }
+    }
+    dist += L;
+  }
+}
+
+/* --- abribus sur les grands axes --- */
+const busSigns = [];
+let shelterCount = 0;
+for (const r of D.roads){
+  if (shelterCount >= 2 || r.round || !(r.type === 'trunk' || r.type === 'primary') || r.w < 7) continue;
+  const mid = r.pts[Math.floor(r.pts.length/2)];
+  if (!mid) continue;
+  const dc = Math.hypot(mid[0]-783, mid[1]-1131);
+  if (dc < 180 || dc > 780) continue;
+  let ux = 1, uz = 0;
+  if (r.pts.length > 1){
+    const a = r.pts[Math.floor(r.pts.length/2) - 1], b = mid;
+    const L = Math.hypot(b[0]-a[0], b[1]-a[1]) || 1;
+    ux = (b[0]-a[0])/L; uz = (b[1]-a[1])/L;
+  }
+  const nx = -uz, nz = ux, side = shelterCount ? -1 : 1;
+  const px = mid[0] + nx*side*(r.w/2 + 2.6), pz = mid[1] + nz*side*(r.w/2 + 2.6);
+  if (insideBld(px, pz, 1.6)) continue;
+  /* structure : toit, panneau arriere, 4 poteaux, banc */
+  const bx = px + nx*side*0.62, bz = pz + nz*side*0.62;
+  addBox(decoA, px, pz, 3.5, 1.35, 0.1, 0x8e969c, [ux,uz], [nx*side,nz*side], 0.14 + 2.35);
+  addBox(decoA, bx, bz, 3.2, 0.08, 1.65, 0x2d4b55, [ux,uz], [nx*side,nz*side], 0.14 + 0.78);
+  for (const t of [-1.5, 1.5]){
+    addBox(decoA, px + ux*t, pz + uz*t, 0.09, 0.09, 2.32, 0x4a5158, [ux,uz], [nx*side,nz*side], 0.14);
+    addBox(decoA, bx + ux*t, bz + uz*t, 0.09, 0.09, 2.32, 0x4a5158, [ux,uz], [nx*side,nz*side], 0.14);
+    addBox(decoA, px + nx*side*0.3 + ux*t, pz + nz*side*0.3 + uz*t, 0.09, 0.34, 0.44, 0x384049, [ux,uz], [nx*side,nz*side], 0.14);
+  }
+  addBox(decoA, px + nx*side*0.3, pz + nz*side*0.3, 2.6, 0.46, 0.08, 0x8a5a36, [ux,uz], [nx*side,nz*side], 0.14 + 0.46);
+  busSigns.push({ x: px - nx*side*0.78, z: pz - nz*side*0.78, y: 2.62, nx: -nx*side, nz: -nz*side });
+  shelterCount++;
+}
+
+/* --- ROND-POINT ISP : drapeau, bancs et massifs sur l'anneau --- */
+for (const rb of ROUNDABOUTS){
+  if (Math.hypot(rb.x-783, rb.z-1131) > 60) continue;
+  const armAngs = (rb.arms || []).map(a => a.ang);
+  for (let k = 0; k < 6; k++){
+    const ang = k/6*Math.PI*2 + 0.45;
+    if (armAngs.some(a => Math.abs(((ang-a+Math.PI)%(Math.PI*2))-Math.PI) < 0.38)) continue;
+    const ux = -Math.sin(ang), uz = Math.cos(ang), nx = Math.cos(ang), nz = Math.sin(ang);
+    const px = rb.x + nx*(rb.Rout + 2.15), pz = rb.z + nz*(rb.Rout + 2.15);
+    if (insideBld(px, pz, 1.2)) continue;
+    addBox(decoA, px, pz, 3.2, 2.0, 0.16, 0x9a968c, [ux,uz], [nx,nz], 0.02);
+    addBench(px, pz, ux, uz, nx, nz, 0.18);
+    if (k % 2 === 0) addPlanter(px + ux*1.05, pz + uz*1.05, ux, uz, nx, nz, 0.18);
+  }
+  // lampadaires de l'anneau
+  for (let k = 0; k < 5; k++){
+    const ang = k/5*Math.PI*2 + 0.2;
+    if (armAngs.some(a => Math.abs(((ang-a+Math.PI)%(Math.PI*2))-Math.PI) < 0.36)) continue;
+    const nx = Math.cos(ang), nz = Math.sin(ang);
+    addLamp(rb.x + nx*(rb.Rout + 1.9), rb.z + nz*(rb.Rout + 1.9), -nx, -nz);
+  }
+  // mat + drapeau de la RDC au centre du rond-point ISP
+  if (Math.hypot(rb.x-783, rb.z-1131) < 12){
+    addBox(decoA, rb.x, rb.z, 1.4, 1.4, 0.4, 0xb9b3a4, [1,0], [0,1], 0.14);
+    addBox(decoA, rb.x, rb.z, 0.16, 0.16, 10.0, 0xd8d8d0, [1,0], [0,1], 0.36);
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(0.19, 8, 6),
+      new THREE.MeshLambertMaterial({ color: 0xe3b030 }));
+    ball.position.set(rb.x, 10.45, rb.z); scene.add(ball);
+    const flagMat = new THREE.MeshBasicMaterial({ map: flagTexture(), side: THREE.DoubleSide });
+    for (let k = 0; k < 2; k++){
+      const pl = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 1.6), flagMat);
+      pl.position.set(1.3, 9.35, 0); pl.rotation.y = k*Math.PI/2;
+      pl.position.applyAxisAngle(new THREE.Vector3(0,1,0), 0.4);
+      pl.position.x += rb.x; pl.position.z += rb.z;
+      scene.add(pl);
+    }
+  }
+}
+
+/* --- pelouses et petits parcs dans les espaces vides --- */
+const lawnSpots = [];
+function nearArm(rb, ang){
+  return (rb.arms || []).some(a => Math.abs(((ang - a.ang + Math.PI) % (Math.PI*2)) - Math.PI) < 0.42);
+}
+for (const rb of ROUNDABOUTS){
+  if (Math.hypot(rb.x-783, rb.z-1131) > 80) continue;
+  for (let k = 0; k < 12; k++){
+    const ang = k/12*Math.PI*2 + 0.12;
+    if (nearArm(rb, ang)) continue;
+    const cx = rb.x + Math.cos(ang)*(rb.Rout + 4.15);
+    const cz = rb.z + Math.sin(ang)*(rb.Rout + 4.15);
+    addLawn(cx, cz, 8.0, 5.7, ang);
+    lawnSpots.push([cx, cz, 8.0, 5.7, ang]);
+    if (k % 2 === 0){                                             // arbustes sur le bord exterieur
+      const bx = rb.x + Math.cos(ang)*(rb.Rout + 8.2);
+      const bz = rb.z + Math.sin(ang)*(rb.Rout + 8.2);
+      if (!insideBld(bx, bz, 0.8)){
+        addBlob(decoA, bx, 0.34, bz, 1.15, 0.62, 1.15, 0x3f6b39);
+        addBlob(decoA, bx + 0.5, 0.24, bz + 0.25, 0.62, 0.38, 0.62, 0x5b8a44);
+      }
+    }
+    for (let f = 0; f < 2; f++){                                  // touffes fleuries
+      const fa = ang + (Math.random()-0.5)*0.16, fr = rb.Rout + 3.2 + Math.random()*3.2;
+      addBlob(decoA, rb.x + Math.cos(fa)*fr, 0.24, rb.z + Math.sin(fa)*fr,
+              0.16, 0.20, 0.16, [0xf2d24b,0xe86a4a,0xf7f3e8][f]);
+    }
+  }
+}
+/* bosquets de gazon entre les avenues, dans les dents creuses */
+for (let k = 0; k < 110 && lawnSpots.length < 30; k++){
+  const a = Math.random()*Math.PI*2, rr = 75 + Math.random()*470;
+  const x = 783 + Math.cos(a)*rr, z = 1131 + Math.sin(a)*rr;
+  const near = nearestMajPoint(x, z);
+  if (near.d < 400 || near.d > 6400) continue;                   // 20 a 80 m d'une avenue
+  const w = 7 + Math.random()*7, d = 5 + Math.random()*6;
+  if (!freeSpot(x, z, Math.max(w,d)/2 + 2.0)) continue;
+  if (lawnSpots.some(s => Math.hypot(s[0]-x, s[1]-z) < 18)) continue;
+  const ang = Math.random()*Math.PI;
+  addLawn(x, z, w, d, ang);
+  lawnSpots.push([x, z, w, d, ang]);
+  if (Math.random() < 0.55){
+    const ux = Math.cos(ang), uz = Math.sin(ang);
+    for (const s of [-1, 1])
+      addBlob(decoA, x + ux*(w/2 - 0.6)*s, 0.30, z + uz*(w/2 - 0.6)*s,
+              0.9, 0.5, 0.9, 0x3f6b39);
+  }
+  if (Math.random() < 0.28){
+    const ux = Math.cos(ang), uz = Math.sin(ang), nx = -uz, nz = ux;
+    addBench(x + nx*(d/2 - 0.7), z + nz*(d/2 - 0.7), ux, uz, -nx, -nz, 0.036);
+  }
+}
+/* petits squares bien places sur les trajets du campus et du centre.
+   Les grandes zones brunes du centre sont souvent des rues de latérite :
+   on cherche donc une parcelle libre autour du point vise. */
+let squaresPlaced = 0;
+function makeSquare(x, z, w, d, ang){
+  if (!freeSpot(x, z, Math.max(w,d)/2 + 0.8)) return false;
+  if (lawnSpots.some(s => Math.hypot(s[0]-x, s[1]-z) < 11)) return false;
+  addLawn(x, z, w, d, ang);
+  lawnSpots.push([x, z, w, d, ang]);
+  const ux = Math.cos(ang), uz = Math.sin(ang), nx = -uz, nz = ux;
+  for (const s of [-1, 1]){
+    addBlob(decoA, x + nx*(d/2 - 0.8) + ux*(w/2 - 1.0)*s, 0.34, z + nz*(d/2 - 0.8) + uz*(w/2 - 1.0)*s,
+            1.05, 0.56, 1.05, 0x3f6b39);
+    addBlob(decoA, x + nx*(d/2 - 0.8) + ux*(w/2 - 1.0)*s + 0.5, 0.22,
+            z + nz*(d/2 - 0.8) + uz*(w/2 - 1.0)*s + 0.3,
+            0.55, 0.34, 0.55, 0x5b8a44);
+  }
+  addBench(x + nx*(d/2 - 0.9), z + nz*(d/2 - 0.9), ux, uz, -nx, -nz, 0.04);
+  for (let f = 0; f < 5; f++){
+    const fa = f/5*Math.PI*2 + 0.4;
+    addBlob(decoA, x + Math.cos(fa)*(Math.min(w,d)*0.28), 0.20,
+            z + Math.sin(fa)*(Math.min(w,d)*0.28), 0.13, 0.17, 0.13,
+            [0xf2d24b,0xe86a4a,0xf7f3e8,0xc76bd8,0xf2d24b][f]);
+  }
+  return true;
+}
+for (const [cx, cz] of [[890, 1038], [948, 792], [646, 858]]){
+  let ok = false;
+  for (let ring = 0; ring < 4 && !ok; ring++){
+    const rad = ring*12;
+    for (let k = 0; k < 10 && !ok; k++){
+      const a = k/10*Math.PI*2 + ring*0.31;
+      ok = makeSquare(cx + Math.cos(a)*rad, cz + Math.sin(a)*rad, 13, 8, a + 0.4);
+    }
+  }
+  if (ok) squaresPlaced++;
+}
+bootLog('pelouses : ' + lawnSpots.length + ' (squares ' + squaresPlaced + ')');
+
+/* --- etals colores autour du marche central --- */
+const marketPoi = D.pois.find(p => /march[ée]/i.test(p.name || '')) || D.pois.find(p => p.cat === 'marche');
+if (marketPoi){
+  const placedStalls = [];
+  const addOneStall = (x, z, ang, a, force) => {
+    if (placedStalls.length >= 10) return false;
+    if (force ? insideBld(x, z, 1.0) : !freeSpot(x, z, 1.4)) return false;
+    if (placedStalls.some(s => Math.hypot(s[0]-x, s[1]-z) < 3.4)) return false;
+    addStall(x, z, ang, 0.03);
+    SOLID_CIRCLES.push({ x, z, r: 1.15 });
+    placedStalls.push([x, z]);
+    if (placedStalls.length % 2 === 0 && a !== undefined){
+      addUmbrella(x + Math.cos(a)*2.45, z + Math.sin(a)*2.45, 0.03);
+    }
+    return true;
+  };
+  /* deux rangees face au panneau : le marche reste visible depuis l'entree,
+     quel que soit le cote par lequel on arrive */
+  for (const side of [1, -1]){
+    const entranceAng = side > 0 ? Math.PI/2 : -Math.PI/2;
+    for (let col = -2; col <= 2; col++){
+      const x = marketPoi.x + col*4.35;
+      const z = marketPoi.z + 13.5*side;
+      addOneStall(x, z, entranceAng + Math.PI/2, entranceAng, true);
+    }
+  }
+  /* on essaie plusieurs orientations : une allee de deux rangees de cinq etals,
+     dans l'espace libre le plus large autour de l'entree du marche */
+  let best = null;
+  for (let d = 0; d < 12; d++){
+    const a = d/12*Math.PI*2;
+    const tx = -Math.sin(a), tz = Math.cos(a);
+    const cells = [];
+    for (let row = 0; row < 2; row++) for (let col = 0; col < 5; col++){
+      const rr = 10.8 + row*5.2, tt = (col-2)*4.35;
+      const x = marketPoi.x + Math.cos(a)*rr + tx*tt;
+      const z = marketPoi.z + Math.sin(a)*rr + tz*tt;
+      if (freeSpot(x, z, 1.4)) cells.push([x, z]);
+    }
+    const score = cells.length + Math.random()*0.25;
+    if (!best || score > best.score) best = { a, cells, score };
+  }
+  if (best && best.cells.length >= 7){
+    for (const [x, z] of best.cells) addOneStall(x, z, best.a + Math.PI/2, best.a);
+  }
+  /* complete avec quelques etals disperses si l'allee n'a pas pu etre complete */
+  for (let k = 0; k < 120 && placedStalls.length < 10; k++){
+    const a = Math.random()*Math.PI*2, rr = 13 + Math.random()*30;
+    addOneStall(marketPoi.x + Math.cos(a)*rr, marketPoi.z + Math.sin(a)*rr,
+                Math.random()*Math.PI, a);
+  }
+  bootLog('etals marche : ' + placedStalls.length);
+}
+
+/* --- buissons, jardins vivriers, fils a linge dans les espaces vides --- */
+let bushCount = 0;
+for (const r of buildRoads){
+  if (bushCount >= 220 || r.round) continue;
+  const nearC = r.pts.some(p => Math.hypot(p[0]-783, p[1]-1131) < 1050);
+  if (!nearC) continue;
+  let dist = 0;
+  for (let i = 0; i < r.pts.length-1; i++){
+    const a = r.pts[i], b = r.pts[i+1];
+    const L = Math.hypot(b[0]-a[0], b[1]-a[1]);
+    for (let d = (dist % 30); d < L; d += 30){
+      if (bushCount >= 220) break;
+      if (Math.random() < 0.68) continue;
+      const t = d/L, ux = (b[0]-a[0])/L, uz = (b[1]-a[1])/L;
+      const nx = -uz, nz = ux, side = Math.random() < 0.5 ? 1 : -1;
+      const off = r.w/2 + 6 + Math.random()*9;
+      const px = a[0] + ux*t*L + nx*side*off, pz = a[1] + uz*t*L + nz*side*off;
+      if (Math.hypot(px-783, pz-1131) > 1150 || insideBld(px, pz, 1.3)) continue;
+      const s = 0.55 + Math.random()*0.8;
+      addBlob(decoA, px, 0.32*s, pz, 1.0*s, 0.55*s, 1.0*s, Math.random() < 0.5 ? 0x3f6b39 : 0x4d7a3e);
+      addBlob(decoA, px + 0.45*s, 0.22*s, pz + 0.2*s, 0.62*s, 0.42*s, 0.62*s, 0x356033);
+      addBlob(decoA, px - 0.35*s, 0.2*s, pz - 0.3*s, 0.52*s, 0.36*s, 0.52*s, 0x5b8a44);
+      if (Math.random() < 0.22) for (let f = 0; f < 3; f++)
+        addBlob(decoA, px + (Math.random()-0.5)*1.1*s, 0.5*s + Math.random()*0.3, pz + (Math.random()-0.5)*1.1*s,
+                0.07, 0.07, 0.07, [0xf2d24b,0xe86a4a,0xc76bd8][f]);
+      bushCount++;
+    }
+    dist += L;
+  }
+}
+
+const gardens = [];
+for (let k = 0; k < 140 && gardens.length < 10; k++){
+  const a = Math.random()*Math.PI*2, rr = 140 + Math.random()*520;
+  const x = 783 + Math.cos(a)*rr, z = 1131 + Math.sin(a)*rr;
+  if (!freeSpot(x, z, 7)) continue;
+  const near = nearestMajPoint(x, z);
+  if (near.d < 400 || near.d > 8100) continue;             // 20 a 90 m d'une avenue
+  if (gardens.some(g => Math.hypot(g[0]-x, g[1]-z) < 25)) continue;
+  addGarden(x, z, Math.random()*Math.PI, 0.03);
+  gardens.push([x, z]);
+}
+bootLog('jardins vivriers : ' + gardens.length);
+for (let k = 0; k < 8 && gardens.length; k++){
+  const s = gardens[k % gardens.length];
+  const x = s[0] + (Math.random()-0.5)*34, z = s[1] + (Math.random()-0.5)*34;
+  if (!freeSpot(x, z, 4) || Math.hypot(x-783, z-1131) > 1100) continue;
+  addClothesline(x, z, Math.random()*Math.PI, 0.03);
+}
+
+/* --- materiaux fusionnes --- */
+if (decoA.pos.length){
+  const decoMesh = new THREE.Mesh(geomFrom(decoA.pos, decoA.uv, decoA.col, decoA.idx),
+    new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }));
+  decoMesh.castShadow = true; decoMesh.receiveShadow = true;
+  scene.add(decoMesh);
+}
+if (glassA.pos.length){
+  scene.add(new THREE.Mesh(geomFrom(glassA.pos, glassA.uv, glassA.col, glassA.idx),
+    new THREE.MeshBasicMaterial({ vertexColors: true })));
+}
+if (lawnA.pos.length){
+  const lawnMesh = new THREE.Mesh(geomFrom(lawnA.pos, lawnA.uv, lawnA.col, lawnA.idx),
+    new THREE.MeshLambertMaterial({ map: grassTexture(), vertexColors: true, polygonOffset: true, polygonOffsetFactor: -5, polygonOffsetUnits: -10 }));
+  lawnMesh.receiveShadow = true; scene.add(lawnMesh);
+}
+if (busSigns.length){
+  const mat = new THREE.MeshBasicMaterial({ map: busSignTexture(), side: THREE.DoubleSide });
+  for (const s of busSigns){
+    const pl = new THREE.Mesh(new THREE.PlaneGeometry(1.9, 0.72), mat);
+    pl.position.set(s.x, s.y, s.z);
+    pl.rotation.y = Math.atan2(s.nx, s.nz);
+    scene.add(pl);
+  }
+}
+bootLog('beaute rues finie');
 
 /* --- marqueur d'objectif --- */
 const marker = new THREE.Group();
@@ -3479,6 +4228,7 @@ function hideOverlays(){
 
 function startGame(){
   bootLog('startGame');
+  S.loggedIn = true;                        // la camera de jeu suit le heros (aussi en mode ?auto=1)
   const resume = S._resume || null;
   if (!resume) resetGame();                 // nouvelle partie
   hideOverlays();
@@ -3487,6 +4237,15 @@ function startGame(){
   if (resume){                              // reprise d'une sauvegarde
     applySave(resume);
     S._resume = null;
+  }
+  const atStart = new URLSearchParams(location.search).get('at');   // ?at : teleportation de test, apres reset
+  if (atStart){
+    const pp = atStart.split(',').map(Number);
+    if (isFinite(pp[0]) && isFinite(pp[1])){
+      S.pos.set(pp[0], 0, pp[1]);
+      if (pp.length > 2 && isFinite(pp[2])) S.yaw = pp[2];
+      player.position.copy(S.pos);
+    }
   }
   applyObjectiveUI();
   updateHud();
@@ -3731,7 +4490,7 @@ let animPhase = 0;
 const camTarget = new THREE.Vector3();
 const CAM = { dist: 3.6, side: 0.95, height: 1.95, look: 1.55, lookSide: 0.6 };      // vue a hauteur de tete (reglable)
 function camBlocked(x, z){                           // la camera ne doit pas passer dans un mur ou un ilot
-  if (insideBld(x, z, 0.4)) return true;
+  if (buildingNear(x, z, 0.35)) return true;         // polygone exact (la grille evite les faux positifs des AABB)
   for (const cc of SOLID_CIRCLES) if (Math.hypot(x - cc.x, z - cc.z) < cc.r + 0.3) return true;
   return false;
 }
@@ -4495,6 +5254,37 @@ function perfTick(rawDt, now){
 }
 applyQuality();
 
+/* GLTFLoader ne comprend pas KHR_materials_pbrSpecularGlossiness : on recupere
+   nous-memes la texture diffuse de ces matériaux (talking_man, runner) pour
+   éviter les personnages blancs. */
+async function fixSpecGloss(gltf){
+  const jmats = gltf.parser && gltf.parser.json && gltf.parser.json.materials;
+  if (!jmats) return;
+  const byName = new Map();
+  for (const jm of jmats) if (jm.name) byName.set(jm.name, jm);
+  const seen = new Set(), jobs = [];
+  gltf.scene.traverse(o => {
+    if (!o.isMesh || !o.material || Array.isArray(o.material) || seen.has(o.material)) return;
+    const m = o.material, jm = byName.get(m.name);
+    const sg = jm && jm.extensions && jm.extensions.KHR_materials_pbrSpecularGlossiness;
+    if (!sg) return;
+    seen.add(m);
+    const texIndex = sg.diffuseTexture && sg.diffuseTexture.index;
+    const apply = tex => {
+      if (tex){ tex.colorSpace = THREE.SRGBColorSpace; tex.flipY = false; tex.needsUpdate = true; m.map = tex; }
+      if (sg.diffuseFactor) m.color.setRGB(sg.diffuseFactor[0], sg.diffuseFactor[1], sg.diffuseFactor[2]);
+      m.roughness = 0.82; m.metalness = 0; m.needsUpdate = true;
+    };
+    jobs.push(texIndex !== undefined
+      ? gltf.parser.getDependency('texture', texIndex).then(apply, e => {
+          console.warn('texture spec-gloss indisponible', m.name, e);
+          apply(null);
+        })
+      : Promise.resolve(apply(null)));
+  });
+  if (jobs.length) await Promise.all(jobs);
+}
+
 async function loadModelLibrary(){
   let man;
   try {
@@ -4518,6 +5308,7 @@ async function loadModelLibrary(){
       if (!entry || !entry.file) return null;
       try {
         const gltf = await load(entry.file);
+        await fixSpecGloss(gltf);
         const clips = {};
         classifyClips(gltf.animations, clips);
         if (entry.anims) for (const [k, f] of Object.entries(entry.anims)){
@@ -4525,6 +5316,15 @@ async function loadModelLibrary(){
         }
         const root = gltf.scene;
         root.updateMatrixWorld(true);
+        /* variantes colorées : on remplace uniquement le maillage du tee-shirt par une couleur unie,
+           le corps et les chaussures gardent la texture commune. */
+        if (entry.tint) root.traverse(o => {
+          if (!o.isMesh || !o.geometry || !o.geometry.attributes.uv || !o.material || Array.isArray(o.material)) return;
+          const uv = o.geometry.attributes.uv;
+          let maxU = 0;
+          for (let i = 0; i < uv.count; i++){ const u = uv.getX(i); if (u > maxU) maxU = u; }
+          if (maxU < 0.3) o.material = new THREE.MeshLambertMaterial({ color: new THREE.Color(entry.tint), side: THREE.DoubleSide });
+        });
         const size = new THREE.Box3().setFromObject(root).getSize(new THREE.Vector3());
         root.scale.setScalar(size.y > 0 ? (entry.height || defH) / size.y : 1);       // taille reelle (~1,75 m)
         root.updateMatrixWorld(true);
@@ -4865,7 +5665,8 @@ function loadSceneryModels(){
     console.log('Motos stationnées :', 5);
 
     /* talking_man : TOUTE la foule du marche devient vivante (il parle sur place) */
-    gltfLoader.load('models/talking_man.glb', gltf => {
+    gltfLoader.load('models/talking_man.glb', async gltf => {
+      try { await fixSpecGloss(gltf); } catch(e){ console.warn('textures talking_man :', e); }
       const root = gltf.scene;
       root.updateMatrixWorld(true);
       const size = new THREE.Box3().setFromObject(root).getSize(new THREE.Vector3());

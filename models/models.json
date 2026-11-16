@@ -4,17 +4,17 @@
   ],
   "walkers": [
     { "file": "casual_man.glb",        "height": 1.72 },
-    { "file": "casual_man_red.glb",    "height": 1.72 },
-    { "file": "casual_man_red.glb",    "height": 1.72 },
-    { "file": "casual_man_green.glb",  "height": 1.72 },
-    { "file": "casual_man_green.glb",  "height": 1.72 },
-    { "file": "casual_man_purple.glb", "height": 1.72 },
-    { "file": "casual_man_purple.glb", "height": 1.72 },
+    { "file": "casual_man_red.glb",    "height": 1.72, "tint": "#b53b34" },
+    { "file": "casual_man_red.glb",    "height": 1.72, "tint": "#b53b34" },
+    { "file": "casual_man_green.glb",  "height": 1.72, "tint": "#2f7d4a" },
+    { "file": "casual_man_green.glb",  "height": 1.72, "tint": "#2f7d4a" },
+    { "file": "casual_man_purple.glb", "height": 1.72, "tint": "#7650a8" },
+    { "file": "casual_man_purple.glb", "height": 1.72, "tint": "#7650a8" },
     { "file": "gman.glb",              "height": 1.72 },
     { "file": "man_woman_walk.glb",    "height": 1.72 },
     { "file": "runner.glb",            "height": 1.72 },
     { "file": "casual_man.glb",        "height": 1.72 },
-    { "file": "casual_man_red.glb",    "height": 1.72 },
-    { "file": "casual_man_green.glb",  "height": 1.72 }
+    { "file": "casual_man_red.glb",    "height": 1.72, "tint": "#b53b34" },
+    { "file": "casual_man_green.glb",  "height": 1.72, "tint": "#2f7d4a" }
   ]
 }

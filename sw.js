@@ -1,7 +1,7 @@
 // Luo Étudiant Oyé — service worker
 // Stratégie : toujours essayer le réseau d'abord pour index.html (le jeu ne peut plus rester vieux),
 // cache-first pour les gros fichiers (modèles, données) qui changent rarement.
-const CACHE = 'luo-v1.10.1';
+const CACHE = 'luo-v1.11.0';
 const ASSETS = [
   './',
   './index.html',
@@ -39,6 +39,7 @@ const ASSETS = [
 const MODEL_ASSETS = [
   './models/models.json',
   './models/casual_man.glb',
+  './models/casual_tex.webp',
   './models/fairheaven.glb',
   './models/fiat_punto.glb',
   './models/gman.glb',
