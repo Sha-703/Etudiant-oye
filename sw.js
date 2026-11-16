@@ -1,13 +1,34 @@
 // Luo Étudiant Oyé — service worker
 // Stratégie : toujours essayer le réseau d'abord pour index.html (le jeu ne peut plus rester vieux),
 // cache-first pour les gros fichiers (modèles, données) qui changent rarement.
-const CACHE = 'luo-v3.2.2';
+const CACHE = 'luo-v1.10.0';
 const ASSETS = [
   './',
   './index.html',
   './roads.js',
   './manifest.json',
   './icon.svg',
+  './vendor/three.module.min.js',
+  './vendor/addons/math/SimplexNoise.js',
+  './vendor/addons/loaders/GLTFLoader.js',
+  './vendor/addons/loaders/DRACOLoader.js',
+  './vendor/addons/utils/SkeletonUtils.js',
+  './vendor/addons/utils/BufferGeometryUtils.js',
+  './vendor/addons/libs/meshopt_decoder.module.js',
+  './vendor/addons/postprocessing/EffectComposer.js',
+  './vendor/addons/postprocessing/RenderPass.js',
+  './vendor/addons/postprocessing/UnrealBloomPass.js',
+  './vendor/addons/postprocessing/OutputPass.js',
+  './vendor/addons/postprocessing/SMAAPass.js',
+  './vendor/addons/postprocessing/SSAOPass.js',
+  './vendor/addons/postprocessing/Pass.js',
+  './vendor/addons/postprocessing/ShaderPass.js',
+  './vendor/addons/postprocessing/MaskPass.js',
+  './vendor/addons/shaders/CopyShader.js',
+  './vendor/addons/shaders/LuminosityHighPassShader.js',
+  './vendor/addons/shaders/OutputShader.js',
+  './vendor/addons/shaders/SMAAShader.js',
+  './vendor/addons/shaders/SSAOShader.js',
   './models/models.json',
   './models/casual_man.glb',
   './models/fairheaven.glb',
@@ -43,6 +64,7 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET') return;
+  if (url.protocol === 'blob:' || url.protocol === 'data:') return;   // textures GLB : ne pas intercepter
   const isOurs = url.origin === self.location.origin;
   const isDoc = url.pathname === '/' || /index\.html$/.test(url.pathname);
 

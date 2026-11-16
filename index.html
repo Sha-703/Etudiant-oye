@@ -321,7 +321,7 @@
 </div>
 
 <div id="hud" class="panel hidden">
-  <h1>ÉTUDIANT OYÉ <span id="ver" style="font-size:10px; color:#7f92ad; font-weight:600; letter-spacing:.5px; vertical-align:middle">v1.2.0</span></h1>
+  <h1>ÉTUDIANT OYÉ <span id="ver" style="font-size:10px; color:#7f92ad; font-weight:600; letter-spacing:.5px; vertical-align:middle">v1.10.0</span></h1>
   <div class="day" id="clock">Jour 1 — 07:00 · Mbanza-Ngungu</div>
   <div class="stat"><span>📚 Moyenne</span><b id="notes">12,5 / 20</b></div>
   <div class="stat"><span>⚡ Énergie</span><span class="bar"><i id="energyBar" style="width:85%"></i></span></div>
@@ -451,11 +451,17 @@
 </div>
 
 <script type="importmap">
-{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } }
+{ "imports": { "three": "./vendor/three.module.min.js", "three/addons/": "./vendor/addons/" } }
 </script>
 <script src="roads.js"></script>
 <script type="module">
 import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { SSAOPass } from 'three/addons/postprocessing/SSAOPass.js';
 
 const D = window.WEWA_DATA;
 const parkedVehicleMarkers = [];                    // marqueurs vehicules pour la mini-carte
@@ -569,9 +575,9 @@ scene.fog = new THREE.Fog(SKY.morning.clone(), 170, 3600);
    shadowMap = taille de la carte d'ombres, std = materiaux realistes (PBR) + reflets,
    walkers/crowd = nb de pietons, rain = nb de gouttes, hemi/exposure = lumiere. */
 const QUALITY = {
-  low:    { pr:1,   aa:false, shadow:0, shadowMap:1024, std:false, walkers:20, crowd:6,  rain:500,  hemi:0.95, exposure:1.15 },
-  medium: { pr:1.5, aa:true,  shadow:1, shadowMap:1024, std:false, walkers:40, crowd:16, rain:900,  hemi:0.95, exposure:1.15 },
-  high:   { pr:2,   aa:true,  shadow:1, shadowMap:2048, std:true,  walkers:70, crowd:28, rain:1400, hemi:0.70, exposure:1.05 },
+  low:    { pr:1,   aa:false, shadow:0, shadowMap:1024, std:false, walkers:20, crowd:6,  rain:500,  hemi:0.95, exposure:1.15, post:false, bloom:0,    ssao:false, smaa:false },
+  medium: { pr:1.5, aa:true,  shadow:1, shadowMap:1024, std:false, walkers:40, crowd:16, rain:900,  hemi:0.95, exposure:1.15, post:true,  bloom:0.18, ssao:false, smaa:true },
+  high:   { pr:2,   aa:true,  shadow:1, shadowMap:2048, std:true,  walkers:70, crowd:28, rain:1400, hemi:0.70, exposure:1.05, post:true,  bloom:0.26, ssao:true,  smaa:true },
 };
 const TIER_ORDER = ['low', 'medium', 'high'];
 const TIER_LABEL = { low:'Bas', medium:'Moyen', high:'Haut' };
@@ -617,8 +623,80 @@ sun.shadow.camera.left = -140; sun.shadow.camera.right = 140;
 sun.shadow.camera.top = 140; sun.shadow.camera.bottom = -140;
 sun.shadow.camera.near = 10; sun.shadow.camera.far = 700;
 sun.shadow.bias = -0.0006;
+sun.shadow.normalBias = 0.06;                       // evite l'auto-ombrage (personnages noirs) rasante
 scene.add(sun);
 scene.add(sun.target);
+
+/* ---- ciel stylise : degrade bleu profond + halo de soleil (leger et controle) ---- */
+const skyUniforms = {
+  uTop:      { value: new THREE.Color(0x2a6bb5) },
+  uHorizon:  { value: new THREE.Color(0xc8dced) },
+  uSunColor: { value: new THREE.Color(0xffd8a8) },
+  uSunDir:   { value: new THREE.Vector3(0.25, 0.45, 1).normalize() },
+  uSunI:     { value: 1.0 },
+};
+const sky = new THREE.Mesh(
+  new THREE.SphereGeometry(1, 32, 16),
+  new THREE.ShaderMaterial({
+    uniforms: skyUniforms,
+    side: THREE.BackSide,
+    depthWrite: false,
+    fog: false,
+    vertexShader: `
+      varying vec3 vDir;
+      void main(){
+        vDir = normalize(position);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }`,
+    fragmentShader: `
+      uniform vec3 uTop, uHorizon, uSunColor, uSunDir;
+      uniform float uSunI;
+      varying vec3 vDir;
+      void main(){
+        vec3 d = normalize(vDir);
+        float h = clamp(d.y, 0.0, 1.0);
+        vec3 col = mix(uHorizon, uTop, pow(h, 0.62));
+        float sd = max(dot(d, normalize(uSunDir)), 0.0);
+        col += uSunColor * pow(sd, 320.0) * 1.8 * uSunI;
+        col += uSunColor * pow(sd, 8.0) * 0.22 * uSunI;
+        gl_FragColor = vec4(col, 1.0);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }`
+  })
+);
+sky.scale.setScalar(4000);
+sky.frustumCulled = false;
+scene.add(sky);
+
+/* ---- post-traitement : bloom + anti-aliasing + occlusion (paliers Moyen/Haut) ---- */
+const post = { composer:null, bloom:null, smaa:null, ssao:null, output:null, enabled:false };
+function buildPost(){
+  if (post.composer) return;
+  const w = Math.max(2, Math.floor(innerWidth * renderer.getPixelRatio()));
+  const h = Math.max(2, Math.floor(innerHeight * renderer.getPixelRatio()));
+  const c = new EffectComposer(renderer);
+  c.addPass(new RenderPass(scene, camera));
+  post.ssao = new SSAOPass(scene, camera, w, h);
+  post.ssao.kernelRadius = 6;
+  post.ssao.minDistance = 0.002;
+  post.ssao.maxDistance = 0.08;
+  post.ssao.enabled = false;
+  c.addPass(post.ssao);
+  post.bloom = new UnrealBloomPass(new THREE.Vector2(w, h), QUALITY[tier].bloom || 0.25, 0.45, 1.8);
+  c.addPass(post.bloom);
+  post.smaa = new SMAAPass(w, h);
+  c.addPass(post.smaa);
+  post.output = new OutputPass();
+  c.addPass(post.output);
+  post.composer = c;
+  syncPostSize();
+}
+function syncPostSize(){
+  if (!post.composer) return;
+  post.composer.setPixelRatio(renderer.getPixelRatio());
+  post.composer.setSize(innerWidth, innerHeight);
+}
 
 /* ---- materiaux realistes (palier Haut) : on garde le Lambert d'origine et on cree un
         MeshStandardMaterial equivalent a la volee, partage entre les objets ---- */
@@ -1338,6 +1416,34 @@ function asphaltTexture(){
   return t;
 }
 
+/* dalles de trottoir : joints, grain et taches (carrelage urbain) */
+function pavingTexture(){
+  const N = 256, cv = document.createElement('canvas'); cv.width = cv.height = N;
+  const c = cv.getContext('2d');
+  c.fillStyle = '#b9b3a4'; c.fillRect(0, 0, N, N);
+  const img = c.getImageData(0, 0, N, N);
+  for (let i = 0; i < N*N; i++){
+    const g = (Math.random() - 0.5) * 20;
+    img.data[i*4] += g; img.data[i*4+1] += g; img.data[i*4+2] += g;
+  }
+  c.putImageData(img, 0, 0);
+  c.strokeStyle = 'rgba(44,41,36,.38)'; c.lineWidth = 2;
+  for (let i = 0; i <= N; i += 64){
+    c.beginPath(); c.moveTo(i, 0); c.lineTo(i, N); c.stroke();
+    c.beginPath(); c.moveTo(0, i); c.lineTo(N, i); c.stroke();
+  }
+  for (let i = 0; i < 9; i++){
+    const x = Math.random()*N, y = Math.random()*N, r = 6 + Math.random()*20;
+    const gr = c.createRadialGradient(x, y, 0, x, y, r);
+    gr.addColorStop(0, 'rgba(62,56,46,.14)'); gr.addColorStop(1, 'rgba(62,56,46,0)');
+    c.fillStyle = gr; c.fillRect(x-r, y-r, r*2, r*2);
+  }
+  const t = new THREE.CanvasTexture(cv);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+  return t;
+}
+
 scene.add(new THREE.Mesh(geomFrom(dirtA.pos, dirtA.uv, null, dirtA.idx),
   new THREE.MeshLambertMaterial({ color: 0x7e4a2b, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -8 })));
 const trackMesh = new THREE.Mesh(geomFrom(trackA.pos, trackA.uv, null, trackA.idx),
@@ -1351,7 +1457,7 @@ const roadMesh = new THREE.Mesh(geomFrom(roadA.pos, roadA.uv, null, roadA.idx),
 roadMesh.receiveShadow = true;
 scene.add(roadMesh);
 const walkMesh = new THREE.Mesh(geomFrom(walkA.pos, walkA.uv, null, walkA.idx),
-  new THREE.MeshLambertMaterial({ color: 0xb9b3a4, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -8 }));
+  new THREE.MeshLambertMaterial({ map: pavingTexture(), color: 0xffffff, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -8 }));
 walkMesh.receiveShadow = true;
 scene.add(walkMesh);
 scene.add(new THREE.Mesh(geomFrom(lineA.pos, lineA.uv, null, lineA.idx),
@@ -2589,6 +2695,19 @@ function addGrass(x, z){
     treeA.idx.push(treeA.pos.length/3-3, treeA.pos.length/3-2, treeA.pos.length/3-1);
   }
 }
+/* petites fleurs de pelouse (campus) : deux quads croises, couleurs vives */
+function addFlower(x, z){
+  const cols = [0xf2d24b, 0xf7f3e8, 0xc76bd8, 0xe86a4a, 0xf0a0c0];
+  const c = new THREE.Color(cols[(Math.random()*cols.length)|0]);
+  const a = Math.random()*Math.PI*2, h = 0.16 + Math.random()*0.16, r = 0.05;
+  for (const q of [0, Math.PI/2]){
+    const ux = Math.cos(a+q)*r, uz = Math.sin(a+q)*r;
+    treeA.pos.push(x-ux, 0, z-uz,  x+ux, 0, z+uz,  x+ux, h, z+uz,  x-ux, h, z-uz);
+    treeA.col.push(c.r,c.g,c.b, c.r,c.g,c.b, c.r,c.g,c.b, c.r,c.g,c.b);
+    const b = treeA.pos.length/3 - 4;
+    treeA.idx.push(b, b+1, b+2, b, b+2, b+3);
+  }
+}
 // palmiers le long des rues
 for (const r of buildRoads){
   let dist = 0;
@@ -2645,6 +2764,29 @@ for (const r of D.roads){
       addGrass(a[0]+(b[0]-a[0])*t - uz*off*side, a[1]+(b[1]-a[1])*t + ux*off*side);
     }
     dist += L;
+  }
+}
+// pelouse fleurie : petites fleurs le long des avenues du campus ISP
+{
+  const lawnRoads = buildRoads.filter(r => r.pts.some(p => Math.hypot(p[0]-783, p[1]-1131) < 520));
+  for (const r of lawnRoads){
+    let dist = 0;
+    for (let i = 0; i < r.pts.length-1; i++){
+      const a = r.pts[i], b = r.pts[i+1];
+      const L = Math.hypot(b[0]-a[0], b[1]-a[1]);
+      for (let d = (dist % 9); d < L; d += 9){
+        if (Math.random() < 0.52) continue;
+        const t = d/L, ux = (b[0]-a[0])/L, uz = (b[1]-a[1])/L;
+        const off = r.w/2 + 1.9 + Math.random()*3.2;
+        const side = Math.random() < .5 ? 1 : -1;
+        const fx = a[0]+(b[0]-a[0])*t - uz*off*side;
+        const fz = a[1]+(b[1]-a[1])*t + ux*off*side;
+        if (insideBld(fx, fz, 0.4)) continue;
+        addFlower(fx, fz);
+        if (Math.random() < 0.35) addFlower(fx + (Math.random()-0.5)*1.6, fz + (Math.random()-0.5)*1.6);
+      }
+      dist += L;
+    }
   }
 }
 for (const rb of ROUNDABOUTS){                                  // palmiers et arbustes sur l'ilot central
@@ -3544,19 +3686,58 @@ function updateObjective(dt){
 }
 
 /* ============================ AMBIANCE ============================ */
-const skyTarget = SKY.morning.clone();
-function updateAmbiance(dt){
-  if (S.objIdx >= 5) skyTarget.copy(SKY.evening);
-  else if (S.rain) skyTarget.copy(SKY.rain);
-  else if (S.objIdx >= 3) skyTarget.copy(SKY.noon);
-  else skyTarget.copy(SKY.morning);
-  scene.background.lerp(skyTarget, dt * 0.4);
-  scene.fog.color.copy(scene.background);
-  // soleil (et ses ombres) qui suit le joueur
-  sun.position.set(S.pos.x + 150, 250, S.pos.z + 110);
+/* presets de lumiere : matin, midi, coucher de soleil, pluie */
+const AMB = {
+  morning: { elev:22,  azim:100, exp:0.95, sunI:2.4, hemi:0.95, sun:0xffe3c0, fog:0xa9bccb, fogNear:180, fogFar:3800, top:0x2a6bb5, horizon:0xc8dced, sunCol:0xffd8a8, skyI:1.0 },
+  noon:    { elev:62,  azim:150, exp:0.92, sunI:2.8, hemi:1.00, sun:0xfff3e2, fog:0xb9cbd9, fogNear:220, fogFar:4200, top:0x1f63c0, horizon:0xcfe6ff, sunCol:0xffffff, skyI:0.7 },
+  evening: { elev:6.5, azim:255, exp:1.00, sunI:2.6, hemi:0.82, sun:0xff9a55, fog:0xd9a077, fogNear:140, fogFar:3200, top:0x1b2f57, horizon:0xff9a55, sunCol:0xff6a2a, skyI:1.4 },
+  rain:    { elev:38,  azim:170, exp:0.90, sunI:0.9, hemi:1.02, sun:0xbfc8cf, fog:0x8b949c, fogNear:90,  fogFar:1600, top:0x4b5a66, horizon:0x9aa8b2, sunCol:0xbbc6ce, skyI:0.15 },
+};
+const amb = {
+  elev:22, azim:100, exp:0.95, sunI:2.4, hemi:0.95, fogNear:180, fogFar:3800, skyI:1.0,
+  sun: new THREE.Color(AMB.morning.sun), fog: new THREE.Color(AMB.morning.fog),
+  top: new THREE.Color(AMB.morning.top), horizon: new THREE.Color(AMB.morning.horizon), sunCol: new THREE.Color(AMB.morning.sunCol),
+};
+const sunDir = new THREE.Vector3();
+const _ambSun = new THREE.Color(), _ambFog = new THREE.Color();
+const _ambTop = new THREE.Color(), _ambHor = new THREE.Color(), _ambCol = new THREE.Color();
+function updateSky(dt){
+  const name = S.objIdx >= 5 ? 'evening' : (S.rain ? 'rain' : (S.objIdx >= 3 ? 'noon' : 'morning'));
+  const A = AMB[name];
+  const k = Math.min(1, dt * 0.45);
+  for (const key of ['elev','azim','exp','sunI','hemi','fogNear','fogFar','skyI'])
+    amb[key] += (A[key] - amb[key]) * k;
+  _ambSun.setHex(A.sun); _ambFog.setHex(A.fog);
+  _ambTop.setHex(A.top); _ambHor.setHex(A.horizon); _ambCol.setHex(A.sunCol);
+  amb.sun.lerp(_ambSun, k); amb.fog.lerp(_ambFog, k);
+  amb.top.lerp(_ambTop, k); amb.horizon.lerp(_ambHor, k); amb.sunCol.lerp(_ambCol, k);
+
+  sunDir.setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - amb.elev), THREE.MathUtils.degToRad(amb.azim));
+  skyUniforms.uTop.value.copy(amb.top);
+  skyUniforms.uHorizon.value.copy(amb.horizon);
+  skyUniforms.uSunColor.value.copy(amb.sunCol);
+  skyUniforms.uSunDir.value.copy(sunDir);
+  skyUniforms.uSunI.value = amb.skyI;
+  sky.position.copy(camera.position);
+
+  sun.position.set(S.pos.x + sunDir.x * 280, Math.max(26, sunDir.y * 280), S.pos.z + sunDir.z * 280);
   sun.target.position.set(S.pos.x, 0, S.pos.z);
   sun.target.updateMatrixWorld();
-  sunSp.position.set(S.pos.x + 620, 950, S.pos.z + 460);
+  sun.color.copy(amb.sun);
+  sun.intensity = amb.sunI;
+
+  hemi.intensity = QUALITY[tier].hemi * amb.hemi;
+  renderer.toneMappingExposure = QUALITY[tier].exposure * amb.exp;
+  scene.fog.color.copy(amb.fog);
+  scene.fog.near = amb.fogNear;
+  scene.fog.far = amb.fogFar;
+  scene.background.copy(amb.fog);                    // repli tant que le ciel shader n'est pas pret
+
+  sunSp.position.set(S.pos.x + sunDir.x * 1100, Math.max(40, sunDir.y * 1100), S.pos.z + sunDir.z * 1100);
+  sunSp.material.opacity = name === 'rain' ? 0.15 : 0.85;
+}
+function updateAmbiance(dt){
+  updateSky(dt);
   hillRing.position.set(S.pos.x * 0.97, 0, S.pos.z * 0.97);
   for (const c of clouds){
     c.position.x += dt * 2.4;
@@ -3887,6 +4068,7 @@ addEventListener('resize', () => {
   camera.aspect = innerWidth/innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
+  syncPostSize();
 });
 
 function togglePause(){
@@ -4137,6 +4319,16 @@ function applyQuality(){
   const Q = QUALITY[tier];
   renderer.setPixelRatio(Math.min(devicePixelRatio, Q.pr));
   renderer.setSize(innerWidth, innerHeight);
+  post.enabled = !!Q.post;
+  if (post.enabled){
+    buildPost();
+    post.bloom.strength = Q.bloom;
+    post.bloom.radius = 0.45;
+    post.bloom.threshold = 1.8;
+    post.ssao.enabled = !!Q.ssao;
+    post.smaa.enabled = !!Q.smaa;
+    syncPostSize();
+  }
   sun.castShadow = Q.shadow > 0;
   if (sun.shadow.mapSize.x !== Q.shadowMap){
     sun.shadow.mapSize.set(Q.shadowMap, Q.shadowMap);
@@ -4273,8 +4465,17 @@ async function loadModelLibrary(){
       for (const [k, c] of Object.entries(proto.clips)) actions[k] = mixer.clipAction(c);
       return { group, mixer, actions };
     };
-    const pProtos = await Promise.all((man.players || []).map(e => build(e, 1.75)));
-    const wProtos = (await Promise.all((man.walkers || []).map(e => build(e, 1.7)))).filter(Boolean);
+    /* chargement SEQUENTIEL : sur mobile/headless, decoder 13 GLB en parallele fait
+       echouer les textures blob (personnages blancs). On charge chaque fichier une fois. */
+    async function buildAll(list, h){
+      const uniq = new Map();
+      for (const e of list) if (e && e.file && !uniq.has(e.file)) uniq.set(e.file, e);
+      const done = new Map();
+      for (const [f, e] of uniq) done.set(f, await build(e, h));
+      return list.map(e => (e && done.get(e.file)) || null);
+    }
+    const pProtos = await buildAll(man.players || [], 1.75);
+    const wProtos = (await buildAll(man.walkers || [], 1.7)).filter(Boolean);
     MODELS.players = pProtos;
     MODELS.walkers = wProtos;
     if (!pProtos.some(Boolean) && !wProtos.length){ revealCast(); return; }
@@ -4649,7 +4850,8 @@ function animate(){
   marker.visible = S.state === 'playing' || S.state === 'dialog';
   ring.rotation.z = t/600;
   beam.material.opacity = 0.16 + Math.sin(t/300)*0.08;
-  renderer.render(scene, camera);
+  if (post.enabled && post.composer) post.composer.render();
+  else renderer.render(scene, camera);
 }
 resetGame();
 S.loggedIn = false;
@@ -4661,7 +4863,7 @@ animate();
 
 /* PWA : enregistre l'app hors ligne si possible */
 try {
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
+  if ('serviceWorker' in navigator && !location.search.includes('nosw')) navigator.serviceWorker.register('./sw.js').catch(() => {});
 } catch(e){}
 </script>
 </body>
