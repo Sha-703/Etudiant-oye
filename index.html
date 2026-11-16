@@ -321,7 +321,7 @@
 </div>
 
 <div id="hud" class="panel hidden">
-  <h1>ÉTUDIANT OYÉ <span id="ver" style="font-size:10px; color:#7f92ad; font-weight:600; letter-spacing:.5px; vertical-align:middle">v1.1.0</span></h1>
+  <h1>ÉTUDIANT OYÉ <span id="ver" style="font-size:10px; color:#7f92ad; font-weight:600; letter-spacing:.5px; vertical-align:middle">v1.2.0</span></h1>
   <div class="day" id="clock">Jour 1 — 07:00 · Mbanza-Ngungu</div>
   <div class="stat"><span>📚 Moyenne</span><b id="notes">12,5 / 20</b></div>
   <div class="stat"><span>⚡ Énergie</span><span class="bar"><i id="energyBar" style="width:85%"></i></span></div>
@@ -458,6 +458,7 @@
 import * as THREE from 'three';
 
 const D = window.WEWA_DATA;
+const parkedVehicleMarkers = [];                    // marqueurs vehicules pour la mini-carte
 /* La RN1 sort de la commune (jusqu'a 25 km). On la coupe au bord de la zone cartographiee, sinon les limites
    du monde, la minicarte, le sol et le placement de la vegetation s'etalent sur des dizaines de km. */
 (function clipNational(){
@@ -3745,6 +3746,19 @@ function drawMinimap(t){
   mctx.rotate(rot);
   mctx.translate(-pxs, -pys);
   mctx.drawImage(mmStatic, 0, 0);                     // routes et POI en continu autour du joueur
+  // marqueurs vehicules : voitures = petits carres sombres, motos = points dores
+  for (const v of parkedVehicleMarkers.concat(cars.map(c => ({ x: c.g.position.x, z: c.g.position.z, type: 'car' })))) {
+    const [vx, vy] = m2c(v.x, v.z);
+    if (v.type === 'moto') {
+      mctx.fillStyle = '#ecc94b';
+      mctx.beginPath(); mctx.arc(vx, vy, 2.2, 0, 7); mctx.fill();
+    } else {
+      mctx.fillStyle = '#1a2433';
+      mctx.fillRect(vx - 2, vy - 1.2, 4, 2.4);
+    }
+    mctx.strokeStyle = 'rgba(0,0,0,.5)'; mctx.lineWidth = 0.8;
+    mctx.stroke();
+  }
   mctx.restore();
   // ligne de guidage : du joueur vers le lieu de la mission (option GPS)
   const gd = objTarget();
@@ -4459,6 +4473,7 @@ loadModelLibrary();
           g.position.set(p.x + Math.cos(p.ang + Math.PI/2)*off, 0, p.z - Math.sin(p.ang + Math.PI/2)*off);
           g.rotation.y = p.ang + (Math.random() < .5 ? 0 : Math.PI);
           scene.add(g);
+          parkedVehicleMarkers.push({ x: g.position.x, z: g.position.z, type: 'car' });
         }
         console.log('GLB OK :', pv.file, '(stationné)');
       });
@@ -4479,6 +4494,7 @@ loadModelLibrary();
         car.position.set(px + nx*off, 0, pz + nz*off);
         car.rotation.y = arm.ang + (Math.random() < .5 ? 0 : Math.PI);
         scene.add(car);
+        parkedVehicleMarkers.push({ x: car.position.x, z: car.position.z, type: 'car' });
       }
       // une moto devant le portail ISP
       const moto = makeMoto();
@@ -4490,6 +4506,7 @@ loadModelLibrary();
       rider.position.set(0, 0.38, 0);
       moto.add(rider);
       scene.add(moto);
+      parkedVehicleMarkers.push({ x: moto.position.x, z: moto.position.z, type: 'moto' });
       console.log('ROND-POINT ISP : 3 voitures + 1 moto stationnées');
     }
     /* motos stationnées avec pilote (Option A : casual_man sur makeMoto) */
@@ -4507,6 +4524,7 @@ loadModelLibrary();
       rider.rotation.y = 0;
       moto.add(rider);
       scene.add(moto);
+      parkedVehicleMarkers.push({ x: moto.position.x, z: moto.position.z, type: 'moto' });
     }
     console.log('Motos stationnées :', 5);
 
