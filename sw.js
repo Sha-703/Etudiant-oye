@@ -1,7 +1,7 @@
 // Luo Étudiant Oyé — service worker
 // Stratégie : toujours essayer le réseau d'abord pour index.html (le jeu ne peut plus rester vieux),
 // cache-first pour les gros fichiers (modèles, données) qui changent rarement.
-const CACHE = 'luo-v1.10.0';
+const CACHE = 'luo-v1.10.1';
 const ASSETS = [
   './',
   './index.html',
@@ -29,6 +29,14 @@ const ASSETS = [
   './vendor/addons/shaders/OutputShader.js',
   './vendor/addons/shaders/SMAAShader.js',
   './vendor/addons/shaders/SSAOShader.js',
+  /* Les modeles (12 Mo) ne sont PLUS precharges a l'installation : ils sont
+     mis en cache a la demande par le fetch ci-dessous. Cela evite de les
+     telecharger deux fois au premier lancement et accelere nettement le demarrage. */
+  './bg-login.jpg'
+];
+/* Modeles : mis en cache plus tard, a la demande de la page (message warm-models).
+   Ils ne bloquent ni l'installation ni le premier demarrage. */
+const MODEL_ASSETS = [
   './models/models.json',
   './models/casual_man.glb',
   './models/fairheaven.glb',
@@ -40,13 +48,17 @@ const ASSETS = [
   './models/mercedes.glb',
   './models/rail_piece.glb',
   './models/runner.glb',
-  './models/talking_man.glb'
+  './models/talking_man.glb',
+  './models/casual_man_red.glb',
+  './models/casual_man_green.glb',
+  './models/casual_man_purple.glb'
 ];
 
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE)
-      .then(c => c.addAll(ASSETS))
+      // allSettled : un fichier manquant ne bloque plus toute l'installation
+      .then(c => Promise.allSettled(ASSETS.map(u => c.add(u))))
       .then(() => self.skipWaiting())   // l'ancien SW se fait remplacer tout de suite
       .catch(err => console.warn('SW install: assets manquants', err))
   );
@@ -56,6 +68,15 @@ self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
       .then(() => self.clients.claim())
+  );
+});
+
+/* La page demande la mise en cache des modeles une fois le jeu lance
+   (pas pendant le demarrage : la bande passante reste au heros). */
+self.addEventListener('message', e => {
+  if (!e.data || e.data.type !== 'warm-models') return;
+  e.waitUntil(
+    caches.open(CACHE).then(c => Promise.allSettled(MODEL_ASSETS.map(u => c.add(u))))
   );
 });
 
